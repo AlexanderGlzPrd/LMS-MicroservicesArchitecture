@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CourseAuthoring.Domain.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CourseAuthoring.Application", "src\services\course-authoring\CourseAuthoring.Application\CourseAuthoring.Application.csproj", "{57034940-9E97-4E23-A21D-C9CF074CE286}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CourseAuthoring.Infrastructure", "src\services\course-authoring\CourseAuthoring.Infrastructure\CourseAuthoring.Infrastructure.csproj", "{F24C4459-71BD-4D6B-B282-EC6BF9025C82}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -65,6 +67,18 @@ Global
 		{57034940-9E97-4E23-A21D-C9CF074CE286}.Release|x64.Build.0 = Release|Any CPU
 		{57034940-9E97-4E23-A21D-C9CF074CE286}.Release|x86.ActiveCfg = Release|Any CPU
 		{57034940-9E97-4E23-A21D-C9CF074CE286}.Release|x86.Build.0 = Release|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Debug|x64.Build.0 = Debug|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Debug|x86.Build.0 = Debug|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Release|x64.ActiveCfg = Release|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Release|x64.Build.0 = Release|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Release|x86.ActiveCfg = Release|Any CPU
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -76,5 +90,6 @@ Global
 		{05038E7D-7AE4-A208-2FFB-F526508B48A8} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{B6AFA57F-A963-4F00-8C56-4D0835E635D4} = {05038E7D-7AE4-A208-2FFB-F526508B48A8}
 		{57034940-9E97-4E23-A21D-C9CF074CE286} = {51DBC901-42F6-1E5B-8AF0-A5745B1EE8F7}
+		{F24C4459-71BD-4D6B-B282-EC6BF9025C82} = {51DBC901-42F6-1E5B-8AF0-A5745B1EE8F7}
 	EndGlobalSection
 EndGlobal
