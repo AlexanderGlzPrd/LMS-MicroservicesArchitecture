@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Application solo depende de Domain y del contrato de inyeccion de dependencias.
+    Sin EF Core, sin ASP.NET Core, sin Infrastructure, sin Api (ADR-T03).
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CourseAuthoring.Domain\CourseAuthoring.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Sin ProjectReference y sin PackageReference: el dominio no depende de nada.
+    Cualquier referencia anadida aqui rompe un criterio de aceptacion de la SPEC 01.
+  -->
+
+</Project>
