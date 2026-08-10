@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CourseAuthoring.Application
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CourseAuthoring.Infrastructure", "src\services\course-authoring\CourseAuthoring.Infrastructure\CourseAuthoring.Infrastructure.csproj", "{F24C4459-71BD-4D6B-B282-EC6BF9025C82}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CourseAuthoring.Api", "src\services\course-authoring\CourseAuthoring.Api\CourseAuthoring.Api.csproj", "{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -79,6 +81,18 @@ Global
 		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Release|x64.Build.0 = Release|Any CPU
 		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Release|x86.ActiveCfg = Release|Any CPU
 		{F24C4459-71BD-4D6B-B282-EC6BF9025C82}.Release|x86.Build.0 = Release|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Debug|x64.Build.0 = Debug|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Debug|x86.Build.0 = Debug|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Release|Any CPU.Build.0 = Release|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Release|x64.ActiveCfg = Release|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Release|x64.Build.0 = Release|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Release|x86.ActiveCfg = Release|Any CPU
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -91,5 +105,6 @@ Global
 		{B6AFA57F-A963-4F00-8C56-4D0835E635D4} = {05038E7D-7AE4-A208-2FFB-F526508B48A8}
 		{57034940-9E97-4E23-A21D-C9CF074CE286} = {51DBC901-42F6-1E5B-8AF0-A5745B1EE8F7}
 		{F24C4459-71BD-4D6B-B282-EC6BF9025C82} = {51DBC901-42F6-1E5B-8AF0-A5745B1EE8F7}
+		{01071BAD-AAE7-4E9F-BDF6-182DB39A1B41} = {51DBC901-42F6-1E5B-8AF0-A5745B1EE8F7}
 	EndGlobalSection
 EndGlobal
