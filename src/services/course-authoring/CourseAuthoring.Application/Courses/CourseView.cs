@@ -1,11 +1,6 @@
 using CourseAuthoring.Domain.Courses;
-
 namespace CourseAuthoring.Application.Courses;
 
-/// <summary>
-/// Proyeccion de lectura de un curso. Usa primitivos: los identificadores
-/// fuertemente tipados son del interior del servicio, no del borde.
-/// </summary>
 public sealed record CourseView(
     Guid Id,
     Guid InstructorId,

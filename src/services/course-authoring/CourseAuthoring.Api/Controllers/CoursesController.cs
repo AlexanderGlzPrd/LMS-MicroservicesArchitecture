@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using CourseAuthoring.Api.Contracts;
 using CourseAuthoring.Application.Courses.CreateCourse;
 using CourseAuthoring.Application.Courses.GetCourseById;
@@ -7,7 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace CourseAuthoring.Api.Controllers;
 
 [ApiController]
-[Route("courses")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/courses")]
 public sealed class CoursesController(
     CreateCourseHandler createCourseHandler,
     GetCourseByIdHandler getCourseByIdHandler) : ControllerBase

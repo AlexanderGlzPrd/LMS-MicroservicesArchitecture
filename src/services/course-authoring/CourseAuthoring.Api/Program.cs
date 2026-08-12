@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using CourseAuthoring.Api.Actor;
 using CourseAuthoring.Api.Errors;
 using CourseAuthoring.Application;
@@ -22,12 +23,25 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentActor, HttpCurrentActor>();
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+
+builder.Services
+    .AddApiVersioning(options =>
+    {
+        options.DefaultApiVersion = new ApiVersion(1, 0);
+        options.ReportApiVersions = true;
+        options.ApiVersionReader = new UrlSegmentApiVersionReader();
+    })
+    .AddMvc()
+    .AddApiExplorer(options =>
+    {
+        options.GroupNameFormat = "'v'VVV";
+        options.SubstituteApiVersionInUrl = true;
+    })
+    .AddOpenApi();
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
-// una base sin migrar responde Healthy.
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<CourseAuthoringDbContext>();
 
@@ -37,7 +51,7 @@ app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().WithDocumentPerVersion();
     app.MapScalarApiReference();
 }
 
