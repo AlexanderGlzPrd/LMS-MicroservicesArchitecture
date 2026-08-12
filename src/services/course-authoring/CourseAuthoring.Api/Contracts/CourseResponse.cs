@@ -7,12 +7,18 @@ public sealed record CourseResponse(
     Guid InstructorId,
     string Title,
     string Status,
-    DateTimeOffset CreatedAt)
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? PublishedAt,
+    DateTimeOffset? PublishedContentUpdatedAt,
+    IReadOnlyList<LessonResponse> Lessons)
 {
     public static CourseResponse From(CourseView view) => new(
         view.Id,
         view.InstructorId,
         view.Title,
         view.Status,
-        view.CreatedAt);
+        view.CreatedAt,
+        view.PublishedAt,
+        view.PublishedContentUpdatedAt,
+        [.. view.Lessons.Select(LessonResponse.From)]);
 }
