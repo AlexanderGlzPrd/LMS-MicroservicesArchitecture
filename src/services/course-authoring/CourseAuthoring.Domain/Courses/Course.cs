@@ -1,3 +1,5 @@
+using CourseAuthoring.Domain.Abstractions;
+using CourseAuthoring.Domain.Courses.Events;
 using CourseAuthoring.Domain.Courses.Exceptions;
 
 namespace CourseAuthoring.Domain.Courses;
@@ -5,6 +7,8 @@ namespace CourseAuthoring.Domain.Courses;
 public sealed class Course
 {
     private readonly List<Lesson> _workingLessons = [];
+    private readonly List<PublishedLesson> _publishedLessons = [];
+    private readonly List<IDomainEvent> _domainEvents = [];
 
     private Course()
     {
@@ -103,6 +107,49 @@ public sealed class Course
         Title = title;
     }
 
+    /// <exception cref="CourseOwnershipException">Si el actor no es el propietario.</exception>
+    /// <exception cref="InvalidCourseStateException">Si el curso no esta en Draft.</exception>
+    /// <exception cref="CourseHasNoLessonsException">Si no hay lecciones de trabajo.</exception>
+    public void Publish(InstructorId actor, DateTimeOffset publishedAt)
+    {
+        EnsureOwnership(actor);
+        EnsureStatus(CourseStatus.Draft);
+        EnsureHasWorkingLessons();
+
+        ReplacePublishedContent();
+
+        Status = CourseStatus.Published;
+        PublishedAt = publishedAt;
+        PublishedContentUpdatedAt = publishedAt;
+
+        _domainEvents.Add(new CoursePublished(Id, InstructorId, publishedAt));
+    }
+
+    // Devuelve false cuando no hay cambios estructurales: el no-op no toca fechas ni registra evento.
+    /// <exception cref="CourseOwnershipException">Si el actor no es el propietario.</exception>
+    /// <exception cref="InvalidCourseStateException">Si el curso no esta publicado.</exception>
+    /// <exception cref="CourseHasNoLessonsException">Si no hay lecciones de trabajo.</exception>
+    public bool Republish(InstructorId actor, DateTimeOffset republishedAt)
+    {
+        EnsureOwnership(actor);
+        EnsureStatus(CourseStatus.Published);
+        EnsureHasWorkingLessons();
+
+        if (!HasStructuralChanges())
+        {
+            return false;
+        }
+
+        ReplacePublishedContent();
+        PublishedContentUpdatedAt = republishedAt;
+
+        _domainEvents.Add(new PublishedContentModified(Id, republishedAt));
+
+        return true;
+    }
+
+    public void ClearDomainEvents() => _domainEvents.Clear();
+
     private void EnsureOwnership(InstructorId actor)
     {
         if (actor != InstructorId)
@@ -110,6 +157,66 @@ public sealed class Course
             throw new CourseOwnershipException(Id, actor);
         }
     }
+
+    private void EnsureStatus(CourseStatus expected)
+    {
+        if (Status != expected)
+        {
+            throw new InvalidCourseStateException(Id, Status, expected);
+        }
+    }
+
+    private void EnsureHasWorkingLessons()
+    {
+        if (_workingLessons.Count == 0)
+        {
+            throw new CourseHasNoLessonsException(Id);
+        }
+    }
+
+    // "Reemplazar el snapshot" es semantica de dominio. Como se persiste ese resultado
+    // (reconciliando por LessonId) es cosa de Infrastructure.
+    private void ReplacePublishedContent()
+    {
+        _publishedLessons.Clear();
+        _publishedLessons.AddRange(WorkingLessons.Select(PublishedLesson.From));
+
+        PublishedTitle = Title;
+    }
+
+    // La verdad esta en los datos: no hay bandera de cambios pendientes que pueda desincronizarse.
+    private bool HasStructuralChanges()
+    {
+        if (!string.Equals(Title, PublishedTitle, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var working = WorkingLessons;
+        var published = PublishedLessons;
+
+        if (working.Count != published.Count)
+        {
+            return true;
+        }
+
+        for (var index = 0; index < working.Count; index++)
+        {
+            if (!IsSameContent(working[index], published[index]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsSameContent(Lesson working, PublishedLesson published)
+        => working.Id == published.Id
+           && working.Position == published.Position
+           && string.Equals(working.Title, published.Title, StringComparison.Ordinal)
+           && string.Equals(working.Description, published.Description, StringComparison.Ordinal)
+           && string.Equals(working.VideoUrl, published.VideoUrl, StringComparison.Ordinal);
 
     private Lesson RequireWorkingLesson(LessonId lessonId)
         => _workingLessons.SingleOrDefault(lesson => lesson.Id == lessonId)
@@ -148,5 +255,18 @@ public sealed class Course
 
     public DateTimeOffset CreatedAt { get; private set; }
 
+    public string? PublishedTitle { get; private set; }
+
+    // Primera publicacion: no cambia al republicar.
+    public DateTimeOffset? PublishedAt { get; private set; }
+
+    // Ultima republicacion con cambios.
+    public DateTimeOffset? PublishedContentUpdatedAt { get; private set; }
+
     public IReadOnlyList<Lesson> WorkingLessons => [.. _workingLessons.OrderBy(lesson => lesson.Position)];
+
+    public IReadOnlyList<PublishedLesson> PublishedLessons =>
+        [.. _publishedLessons.OrderBy(lesson => lesson.Position)];
+
+    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 }
