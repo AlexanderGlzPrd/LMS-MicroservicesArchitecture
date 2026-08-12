@@ -1,0 +1,3 @@
+namespace CourseAuthoring.Application.Courses.ListInstructorCourses;
+
+public sealed record ListInstructorCoursesQuery;

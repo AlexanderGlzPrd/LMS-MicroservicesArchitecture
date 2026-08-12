@@ -12,5 +12,15 @@ internal sealed class CourseRepository(CourseAuthoringDbContext context) : ICour
             .Include(course => course.PublishedLessons.OrderBy(lesson => lesson.Position))
             .FirstOrDefaultAsync(course => course.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<Course>> ListByInstructorAsync(
+        InstructorId instructorId,
+        CancellationToken cancellationToken) =>
+        await context.Courses
+            .AsNoTracking()
+            .Where(course => course.InstructorId == instructorId)
+            .OrderByDescending(course => course.CreatedAt)
+            .ThenBy(course => course.Id)
+            .ToListAsync(cancellationToken);
+
     public void Add(Course course) => context.Courses.Add(course);
 }

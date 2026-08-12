@@ -1,9 +1,12 @@
 using CourseAuthoring.Application.Courses.AddLesson;
 using CourseAuthoring.Application.Courses.CreateCourse;
 using CourseAuthoring.Application.Courses.GetCourseById;
+using CourseAuthoring.Application.Courses.ListInstructorCourses;
+using CourseAuthoring.Application.Courses.PublishCourse;
 using CourseAuthoring.Application.Courses.RemoveLesson;
 using CourseAuthoring.Application.Courses.RenameCourse;
 using CourseAuthoring.Application.Courses.ReorderLessons;
+using CourseAuthoring.Application.Courses.RepublishCourse;
 using CourseAuthoring.Application.Courses.UpdateLesson;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -24,6 +27,10 @@ public static class DependencyInjection
         services.AddScoped<RemoveLessonHandler>();
         services.AddScoped<ReorderLessonsHandler>();
         services.AddScoped<RenameCourseHandler>();
+
+        services.AddScoped<PublishCourseHandler>();
+        services.AddScoped<RepublishCourseHandler>();
+        services.AddScoped<ListInstructorCoursesHandler>();
 
         return services;
     }
