@@ -25,6 +25,6 @@ public sealed class ReorderLessonsHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return [.. course.WorkingLessons.Select(LessonView.From)];
+        return [.. course.WorkingLessons.Select(lesson => LessonView.From(lesson))];
     }
 }

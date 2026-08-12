@@ -14,4 +14,11 @@ public sealed record LessonView(
         lesson.Description,
         lesson.VideoUrl,
         lesson.Position);
+
+    public static LessonView From(PublishedLesson lesson) => new(
+        lesson.Id.Value,
+        lesson.Title,
+        lesson.Description,
+        lesson.VideoUrl,
+        lesson.Position);
 }

@@ -19,5 +19,5 @@ public sealed record CourseView(
         course.CreatedAt,
         course.PublishedAt,
         course.PublishedContentUpdatedAt,
-        [.. course.WorkingLessons.Select(LessonView.From)]);
+        [.. course.WorkingLessons.Select(lesson => LessonView.From(lesson))]);
 }

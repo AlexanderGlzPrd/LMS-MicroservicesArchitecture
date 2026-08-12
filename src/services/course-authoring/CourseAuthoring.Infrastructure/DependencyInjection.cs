@@ -15,6 +15,7 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString));
 
         services.AddScoped<ICourseRepository, CourseRepository>();
+        services.AddScoped<ICatalogQueries, CatalogQueries>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;
