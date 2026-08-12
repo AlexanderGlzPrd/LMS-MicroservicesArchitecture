@@ -7,7 +7,10 @@ namespace CourseAuthoring.Infrastructure.Persistence;
 internal sealed class CourseRepository(CourseAuthoringDbContext context) : ICourseRepository
 {
     public Task<Course?> GetByIdAsync(CourseId id, CancellationToken cancellationToken) =>
-        context.Courses.FirstOrDefaultAsync(course => course.Id == id, cancellationToken);
+        context.Courses
+            .Include(course => course.WorkingLessons.OrderBy(lesson => lesson.Position))
+            .Include(course => course.PublishedLessons.OrderBy(lesson => lesson.Position))
+            .FirstOrDefaultAsync(course => course.Id == id, cancellationToken);
 
     public void Add(Course course) => context.Courses.Add(course);
 }

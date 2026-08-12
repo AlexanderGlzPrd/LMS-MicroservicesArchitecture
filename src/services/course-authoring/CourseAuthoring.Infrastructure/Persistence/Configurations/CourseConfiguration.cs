@@ -33,5 +33,33 @@ internal sealed class CourseConfiguration : IEntityTypeConfiguration<Course>
         builder.Property(course => course.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
+
+        builder.Property(course => course.PublishedTitle)
+            .HasColumnName("published_title")
+            .HasMaxLength(200);
+
+        builder.Property(course => course.PublishedAt)
+            .HasColumnName("published_at");
+
+        builder.Property(course => course.PublishedContentUpdatedAt)
+            .HasColumnName("published_content_updated_at");
+
+        builder.HasMany<Lesson>(nameof(Course.WorkingLessons))
+            .WithOne()
+            .HasForeignKey(lesson => lesson.CourseId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(nameof(Course.WorkingLessons))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany<PublishedLesson>(nameof(Course.PublishedLessons))
+            .WithOne()
+            .HasForeignKey(lesson => lesson.CourseId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(nameof(Course.PublishedLessons))
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Ignore(course => course.DomainEvents);
     }
 }
