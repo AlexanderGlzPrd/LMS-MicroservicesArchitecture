@@ -1,9 +1,5 @@
 # LMS — Plataforma de aprendizaje basada en microservicios (.NET 10)
 
-> **Estado del proyecto:**
-> - documentación y decisiones arquitectónicas.
----
-
 ## 1. Caso de negocio
 
 Plataforma de formación profesional y tecnológica donde un **Instructor** crea y publica cursos, un
