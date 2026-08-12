@@ -22,6 +22,8 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public Task DisposeAsync() => container.DisposeAsync().AsTask();
 
+    public string ConnectionString => container.GetConnectionString();
+
     public CourseAuthoringDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<CourseAuthoringDbContext>()

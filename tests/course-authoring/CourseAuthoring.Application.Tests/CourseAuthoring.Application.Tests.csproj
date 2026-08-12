@@ -6,16 +6,13 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\services\course-authoring\CourseAuthoring.Api\CourseAuthoring.Api.csproj" />
-    <ProjectReference Include="..\..\..\src\services\course-authoring\CourseAuthoring.Infrastructure\CourseAuthoring.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\services\course-authoring\CourseAuthoring.Application\CourseAuthoring.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

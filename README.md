@@ -22,7 +22,7 @@ desmatriculación · revocación de certificados · pagos en el flujo principal.
 
 | Servicio | Ámbito | Responsabilidad |
 |---|---|---|
-| `course-authoring` | MVP | crear/editar cursos y lecciones, publicar, republicar, catálogo |
+| `course-authoring` | MVP — **implementado** | crear/editar cursos y lecciones, publicar, republicar, catálogo |
 | `enrollment` | MVP | conceder acceso de un estudiante a un curso |
 | `learning` | **MVP — Core Domain** | progreso del estudiante y sellado de la Finalización |
 | `certification` | MVP | emisión y verificación de certificados |
@@ -143,11 +143,19 @@ estrategia de despliegue se decide con Docker y Kubernetes (incrementos 12 y 15)
 > esquema. El fallo aparecerá en el primer `POST /api/v1/courses`, devuelto como
 > `application/problem+json`.
 
-Verificación de que la tabla existe con sus cinco columnas:
+Verificación del esquema. `courses` tiene ocho columnas (las cinco iniciales más `published_title`,
+`published_at` y `published_content_updated_at`), y existen las dos tablas de lecciones:
 
 ```bash
 docker exec lms-postgres psql -U postgres -d course_authoring -c "\d courses"
+docker exec lms-postgres psql -U postgres -d course_authoring -c "\d lessons"
+docker exec lms-postgres psql -U postgres -d course_authoring -c "\d published_lessons"
 ```
+
+`lessons` guarda el **contenido de trabajo** y `published_lessons` el **snapshot publicado**. Ambas
+con las mismas seis columnas, clave foránea a `courses.id` con borrado en cascada e índice
+`(course_id, position)` **no único**: la contigüidad de las posiciones la garantiza el agregado, no
+la base de datos (una restricción única fallaría a mitad de un reordenamiento).
 
 La fábrica de tiempo de diseño usa por defecto la cadena de conexión local. Para apuntar a otra base:
 
@@ -174,39 +182,239 @@ Todos los endpoints de negocio llevan la versión en la ruta: `/api/v{n}/...` (A
 publica su propio documento OpenAPI en `/openapi/v{n}.json` y las respuestas incluyen la cabecera
 `api-supported-versions`. `/health` queda fuera del versionado: es un contrato operativo, no de negocio.
 
-### 10.4 Probar los endpoints
+### 10.4 Contenido de trabajo y contenido publicado
 
-```bash
-# Crear un curso
-curl -i -X POST http://localhost:5195/api/v1/courses \
-  -H "X-Instructor-Id: 018f2c4a-0000-7000-8000-000000000001" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Microservicios con .NET 10"}'
+Es la idea central del servicio y conviene entenderla antes de tocar los endpoints.
 
-# Consultarlo (sustituir por el id devuelto en la cabecera Location)
-curl -i http://localhost:5195/api/v1/courses/<id>
+Un curso tiene **dos contenidos a la vez**:
+
+| | Contenido de trabajo | Contenido publicado |
+|---|---|---|
+| Dónde vive | `courses.title` + tabla `lessons` | `courses.published_title` + tabla `published_lessons` |
+| Quién lo ve | solo el instructor propietario, por `/api/v1/courses/**` | cualquiera, por `/api/v1/catalog/**` |
+| Cuándo cambia | en cada edición, al instante | **solo al publicar o republicar** |
+
+Editar un curso ya publicado —renombrarlo, corregir una lección, añadir otra, reordenarlas— **no
+cambia nada de lo que ve el público**. El catálogo sigue mostrando el contenido anterior hasta que
+el instructor ejecuta `POST /republish`. Esa es la garantía de ADR-0002 y el motivo de que existan
+dos tablas en vez de una con un filtro que alguien pueda olvidar.
+
+Una lección publicada **conserva el mismo identificador** que su lección de trabajo de origen: al
+republicar se actualizan las que siguen existiendo, se insertan las nuevas y se borran las que
+desaparecieron. No hay historial: solo existe la última versión publicada.
+
+### 10.5 Endpoints
+
+Todas las rutas de negocio bajo `/api/v1/` (ADR-T24).
+
+**Autoría** — exigen la cabecera `X-Instructor-Id`:
+
+| Método y ruta | Éxito | Qué hace |
+|---|---|---|
+| `POST /api/v1/courses` | `201` | crea el curso en `Draft`, con cabecera `Location` |
+| `GET /api/v1/courses` | `200` | lista los cursos del actor, **sin paginar** |
+| `GET /api/v1/courses/{id}` | `200` | detalle con el contenido de trabajo completo |
+| `PATCH /api/v1/courses/{id}` | `200` | renombra el contenido de trabajo |
+| `POST /api/v1/courses/{id}/lessons` | `201` | añade una lección al final |
+| `PUT /api/v1/courses/{id}/lessons/{lessonId}` | `200` | edita una lección |
+| `DELETE /api/v1/courses/{id}/lessons/{lessonId}` | `204` | elimina y recompacta posiciones a `1..N` |
+| `PUT /api/v1/courses/{id}/lessons/order` | `200` | reordena por lote con la lista completa |
+| `POST /api/v1/courses/{id}/publish` | `200` | `Draft → Published`; exige ≥1 lección |
+| `POST /api/v1/courses/{id}/republish` | `200` | reemplaza el snapshot, o **no-op** si nada cambió |
+
+**Catálogo** — público, sin cabecera:
+
+| Método y ruta | Éxito | Qué hace |
+|---|---|---|
+| `GET /api/v1/catalog/courses?page=1&pageSize=20` | `200` | listado paginado de cursos publicados |
+| `GET /api/v1/catalog/courses/{id}` | `200` | detalle del contenido publicado |
+
+`pageSize` por defecto 20 y máximo 100; `page` empieza en 1. El orden es `published_at DESC, id ASC`
+y **republicar no devuelve el curso al principio del listado**: ordenar por actualización reciente
+sería una regla de ranking, y el Catálogo no tiene reglas propias en el MVP.
+
+#### Los dos listados devuelven resúmenes, no detalles
+
+Ninguno de los dos incluye `lessons`: listar diez cursos no debe arrastrar sus cien lecciones para
+pintar diez títulos. El detalle vive en los endpoints por identificador.
+
+`GET /api/v1/courses` — array JSON plano, sin envoltorio de paginación. Sin `instructorId`: todos
+los cursos de la respuesta son del actor.
+
+```json
+[
+  {
+    "id": "019ff7b4-74b1-7d1e-aad3-de34f22bd45e",
+    "title": "Microservicios con .NET 10",
+    "status": "Published",
+    "createdAt": "2026-08-12T20:40:26.545290+00:00",
+    "publishedAt": "2026-08-12T20:40:44.476598+00:00",
+    "publishedContentUpdatedAt": "2026-08-12T20:51:42.488948+00:00"
+  }
+]
 ```
 
-`POST /api/v1/courses` devuelve `201` con cabecera `Location` y el curso en estado `Draft`.
-Los errores viajan siempre como `application/problem+json`: `400` si el cuerpo es inválido o falta
-la cabecera `X-Instructor-Id`, `404` si el curso no existe, `500` ante un fallo no controlado.
+`publishedAt` y `publishedContentUpdatedAt` son `null` mientras el curso esté en `Draft`.
+
+`GET /api/v1/catalog/courses` — envuelto en un objeto de paginación con exactamente cuatro campos.
+Todo sale del snapshot: `title` es `published_title` y `lessonCount` cuenta `published_lessons`.
+Aquí las dos fechas **nunca** son `null`, porque un curso sin publicar no aparece.
+
+```json
+{
+  "items": [
+    {
+      "id": "019ff7b4-74b1-7d1e-aad3-de34f22bd45e",
+      "title": "Microservicios con .NET 10",
+      "instructorId": "11111111-1111-1111-1111-111111111111",
+      "lessonCount": 3,
+      "publishedAt": "2026-08-12T20:40:44.476598+00:00",
+      "publishedContentUpdatedAt": "2026-08-12T20:51:42.488948+00:00"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalCount": 1
+}
+```
+
+La diferencia es deliberada: el listado del instructor no se pagina y el del catálogo sí desde el
+primer día. Envolver después un array plano sería un cambio rompiente.
+
+### 10.6 Recorrido completo con `curl`
+
+Reproduce el circuito entero: crear, publicar, editar sin que el público se entere, y republicar.
+
+```bash
+INSTRUCTOR="11111111-1111-1111-1111-111111111111"
+
+# 1. Crear el curso. Devuelve 201, Location y lessons: []
+curl -i -X POST http://localhost:5195/api/v1/courses \
+  -H "X-Instructor-Id: $INSTRUCTOR" -H "Content-Type: application/json" \
+  -d '{"title":"Microservicios con .NET 10"}'
+
+COURSE="<id devuelto>"
+
+# 2. Añadir dos lecciones. La posición la asigna el agregado: 1 y 2
+curl -i -X POST http://localhost:5195/api/v1/courses/$COURSE/lessons \
+  -H "X-Instructor-Id: $INSTRUCTOR" -H "Content-Type: application/json" \
+  -d '{"title":"Introduccion","description":"Que es un microservicio","videoUrl":"https://videos.example.com/1.mp4"}'
+
+curl -i -X POST http://localhost:5195/api/v1/courses/$COURSE/lessons \
+  -H "X-Instructor-Id: $INSTRUCTOR" -H "Content-Type: application/json" \
+  -d '{"title":"Bounded Contexts","description":"Contextos delimitados","videoUrl":"https://videos.example.com/2.mp4"}'
+
+# 3. Reordenar por lote: la lista completa, no un movimiento suelto
+curl -i -X PUT http://localhost:5195/api/v1/courses/$COURSE/lessons/order \
+  -H "X-Instructor-Id: $INSTRUCTOR" -H "Content-Type: application/json" \
+  -d '{"lessonIds":["<id-leccion-2>","<id-leccion-1>"]}'
+
+# 4. Publicar
+curl -i -X POST http://localhost:5195/api/v1/courses/$COURSE/publish \
+  -H "X-Instructor-Id: $INSTRUCTOR"
+
+# 5. Ya está en el catálogo público. Fíjate: sin cabecera de instructor
+curl -s http://localhost:5195/api/v1/catalog/courses
+curl -s http://localhost:5195/api/v1/catalog/courses/$COURSE
+
+# 6. Editar el contenido de trabajo: renombrar y añadir una lección
+curl -i -X PATCH http://localhost:5195/api/v1/courses/$COURSE \
+  -H "X-Instructor-Id: $INSTRUCTOR" -H "Content-Type: application/json" \
+  -d '{"title":"Microservicios con .NET 10 (edicion 2)"}'
+
+curl -i -X POST http://localhost:5195/api/v1/courses/$COURSE/lessons \
+  -H "X-Instructor-Id: $INSTRUCTOR" -H "Content-Type: application/json" \
+  -d '{"title":"Outbox","description":"Patron Outbox","videoUrl":"https://videos.example.com/3.mp4"}'
+
+# 7. El catálogo NO se ha enterado: mismo título, mismo lessonCount
+curl -s http://localhost:5195/api/v1/catalog/courses
+
+# 8. Republicar. Devuelve changed: true
+curl -i -X POST http://localhost:5195/api/v1/courses/$COURSE/republish \
+  -H "X-Instructor-Id: $INSTRUCTOR"
+
+# 9. Ahora sí: título nuevo y lessonCount actualizado. publishedAt no ha cambiado
+curl -s http://localhost:5195/api/v1/catalog/courses
+
+# 10. Republicar sin cambios es un no-op: changed: false y no se escribe nada
+curl -i -X POST http://localhost:5195/api/v1/courses/$COURSE/republish \
+  -H "X-Instructor-Id: $INSTRUCTOR"
+```
+
+`publishedAt` es la **primera** publicación y no cambia al republicar.
+`publishedContentUpdatedAt` es la **última republicación con cambios**.
+
+> Los cuerpos de ejemplo van sin acentos a propósito. La API acepta UTF-8 sin problema, pero pegar
+> caracteres no ASCII dentro de comillas en una terminal cuya página de códigos no es UTF-8 —el caso
+> por defecto en Windows— los envía mal codificados y la petición se rechaza con `400`. Si necesitas
+> acentos, manda el cuerpo desde un archivo: `--data-binary @leccion.json`.
+
+### 10.7 Códigos de estado
+
+Los errores viajan siempre como `application/problem+json`.
+
+| Código | Cuándo |
+|---|---|
+| `400` | forma o validez de los datos de entrada: cuerpo mal formado, campo obligatorio ausente, longitud excedida, `X-Instructor-Id` ausente o mal formada, `page`/`pageSize` fuera de rango, título o descripción vacíos, `videoUrl` no absoluta o sin esquema `http`/`https` |
+| `403` | el actor no es el instructor propietario del curso |
+| `404` | curso inexistente, lección inexistente en el curso, o detalle de catálogo de un curso no publicado |
+| `409` | conflicto de estado del ciclo de vida: `publish` sobre un curso ya publicado, `republish` sobre un borrador |
+| `422` | petición estructuralmente válida que el estado actual del curso no permite ejecutar: publicar o republicar sin lecciones, o lista de reordenamiento que no es una permutación exacta |
+| `500` | fallo no controlado; el detalle no sale al cliente, queda en el log |
+
+**`400` frente a `422`.** La diferencia no es qué capa detecta el problema, sino **de dónde procede
+la insuficiencia**:
+
+- **`400`** — la petición está mal escrita y lo estaría **contra cualquier estado del sistema**. Un
+  título vacío o una URL relativa se rechazan sin mirar la base de datos. Que el dominio defienda
+  además esa misma condición no la convierte en `422`: la doble defensa es deliberada, porque el
+  dominio no confía en la API.
+- **`422`** — la petición está bien escrita y **solo es inejecutable contra el estado actual** de ese
+  curso. La misma petición valdría un minuto antes o después: añadir una lección hace que el
+  `publish` funcione; enviar la lista completa hace que el reordenamiento funcione.
+
+`GET /api/v1/catalog/courses/{id}` de un curso en `Draft` devuelve **`404`, no `403`**: para el
+público ese curso no existe.
 
 > **`X-Instructor-Id` no es un mecanismo de seguridad.** Es un tapón de desarrollo detrás de la
-> abstracción `ICurrentActor`: cualquier cliente puede enviar el identificador que quiera. Cuando
-> entre Keycloak (ADR-T15, incremento 11) se sustituye el adaptador por uno que lea el `sub` del
-> token, sin tocar los casos de uso.
+> abstracción `ICurrentActor`: cualquier cliente puede enviar el identificador que quiera. El `403`
+> que devuelve un instructor ajeno es una **invariante del agregado**, no autorización. Cuando entre
+> Keycloak (ADR-T15, incremento 11) se sustituye el adaptador por uno que lea el `sub` del token,
+> sin tocar el dominio ni los casos de uso.
 
-### 10.5 Ejecutar las pruebas
+### 10.8 El contrato v1 está congelado
+
+Las rutas sin versión de la etapa inicial (`POST /courses`, `GET /courses/{id}`) **no existen y no se
+mantienen como alias**: devuelven `404`. Fueron un contrato bootstrap interno, previo a cualquier
+consumidor, y ADR-T24 las trasladó a `/api/v1/` sin compatibilidad hacia atrás. Ese salto fue un
+cambio rompiente deliberado, hecho en la única ventana en la que salía gratis.
+
+A partir de aquí, `/api/v1` **solo admite cambios aditivos**: nuevos endpoints y nuevos campos
+opcionales. Eliminar o renombrar un campo, cambiar su tipo o cambiar el significado de un código de
+estado exige `v2`.
+
+`/health`, `/openapi` y Scalar quedan fuera del versionado: son contratos operativos, no de negocio.
+
+### 10.9 Ejecutar las pruebas
 
 ```bash
 dotnet test LMS.sln
 ```
 
-Dos proyectos: pruebas unitarias de dominio y pruebas de integración. **Las de integración exigen
-Docker en marcha**: levantan su propio contenedor PostgreSQL con Testcontainers, le aplican las
-migraciones y no tocan la base del `docker-compose`.
 
-### 10.6 Detener el entorno
+| Proyecto | Qué prueba | Necesita Docker |
+|---|---|---|
+| `CourseAuthoring.Domain.Tests` | invariantes del agregado: propiedad, posiciones, publicación y no-op | no |
+| `CourseAuthoring.Application.Tests` | orquestación y autorización con dobles de los puertos | no |
+| `CourseAuthoring.Integration.Tests` | repositorio, proyecciones del catálogo y la API completa | **sí** |
+
+Las de integración levantan su propio contenedor PostgreSQL con Testcontainers, le aplican las
+migraciones y **no tocan la base del `docker-compose`**. Las de API arrancan la aplicación real con
+`WebApplicationFactory` contra ese contenedor. Sin SQLite y sin proveedor InMemory: la separación
+entre contenido de trabajo y publicado se apoya en dos tablas y en proyecciones SQL, que un proveedor
+en memoria no reproduce.
+
+### 10.10 Detener el entorno
 
 ```bash
 docker compose down       # conserva los datos
@@ -218,7 +426,7 @@ docker compose down -v    # elimina también el volumen
 | # | Incremento | Estado |
 |---:|---|---|
 | 1 | Documentación, ADR y diagramas | **Completado** |
-| 2 | Course Authoring | **En curso** — base ejecutable |
+| 2 | Course Authoring | **Completado** — lecciones, publicación, republicación y catálogo |
 | 3 | Enrollment | Pendiente |
 | 4 | Learning | Pendiente |
 | 5 | Broker y flujo Enrollment → Learning | Pendiente |
@@ -247,20 +455,33 @@ criterio como implementado, probado ni demostrable.
 |---|---|
 | Documentación y ADR | **Documentado** |
 | Diagramas iniciales | **Documentado** |
-| Código de servicios | **Parcial** — `course-authoring` compila, arranca y persiste; los otros siete no existen |
+| Código de servicios | **Parcial** — `course-authoring` completo en su alcance de MVP; los otros siete no existen |
 | Contenedores y manifiestos | **Parcial** — `docker-compose.yml` solo con PostgreSQL; sin `Dockerfile` de servicio ni Kubernetes |
-| Pruebas | **Parcial** — unitarias de dominio e integración con Testcontainers en `course-authoring` |
+| Pruebas | **Parcial** — tres niveles en `course-authoring`: dominio, aplicación e integración con Testcontainers |
 
 ### Alcance real de `course-authoring` hoy
 
-**Implementado (SPEC 01):** agregado `Course` con identificadores fuertemente tipados ·
-`POST /api/v1/courses` y `GET /api/v1/courses/{id}` con versionado en la ruta (ADR-T24) ·
-persistencia con EF Core y PostgreSQL · OpenAPI y Scalar en
-Development · errores en `application/problem+json` · `/health` de conectividad · logging
-estructurado en consola.
+| Aspecto | Estado |
+|---|---|
+| Agregado `Course` con identificadores fuertemente tipados | **Implementado** |
+| Entidad `Lesson` dentro del agregado, con posición contigua `1..N` | **Implementado** |
+| Edición del contenido de trabajo: añadir, editar, eliminar, reordenar por lote, renombrar | **Implementado** |
+| Invariante de propiedad como regla de dominio (`403`) | **Implementado** |
+| `Publish` con invariante de ≥1 lección | **Implementado** |
+| `Republish` con comparación estructural y no-op | **Implementado** |
+| Snapshot publicado en tabla separada (ADR-0002) | **Implementado** |
+| Catálogo público paginado, listado y detalle | **Implementado** |
+| Contrato HTTP v1 congelado (ADR-T24) y errores `problem+json` | **Implementado** |
+| Persistencia con EF Core y PostgreSQL, migraciones a mano | **Implementado** |
+| OpenAPI y Scalar en Development, `/health`, logging estructurado | **Implementado** |
+| Eventos `CoursePublished` y `PublishedContentModified` | **Registrados en el agregado, sin despachar** |
+| Despachador de eventos, `Contracts`, Outbox, Inbox, RabbitMQ | **Pendiente** |
+| Autenticación real con Keycloak, Gateway, BFF | **Pendiente** |
+| Despublicar y borrar cursos, historial de versiones, módulos, quizzes | **Fuera del MVP** |
+| Búsqueda, filtros y ranking en el catálogo | **Fuera del MVP** |
+| Concurrencia optimista sobre el agregado | **Pendiente** |
+| `Dockerfile` del servicio, compose completo, Kubernetes, observabilidad | **Pendiente** |
 
-**No implementado todavía:** entidad `Lesson` · acción `Publish` y estado `Published` · republicación
-y copia de trabajo (ADR-0002) · catálogo · autorización real · eventos de dominio, Outbox y broker.
 
 ## 14. Secciones pendientes de este README
 

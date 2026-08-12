@@ -59,3 +59,6 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 
 app.Run();
+
+// Punto de entrada visible para WebApplicationFactory en las pruebas de integracion.
+public partial class Program;

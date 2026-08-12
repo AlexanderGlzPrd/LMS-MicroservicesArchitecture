@@ -1,4 +1,5 @@
 using CourseAuthoring.Domain.Courses;
+using CourseAuthoring.Domain.Courses.Exceptions;
 
 namespace CourseAuthoring.Domain.Tests;
 
