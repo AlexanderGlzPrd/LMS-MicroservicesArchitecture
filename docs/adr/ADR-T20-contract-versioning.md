@@ -51,4 +51,4 @@ Que un tipo de contrato se filtre a Application o Domain; se vigila en revisión
 Curso 2: contratos de Integration Events, publicación y consumo correctos.
 
 ## Decisiones relacionadas
-[T02](./ADR-T02-monorepo.md) · [T03](./ADR-T03-clean-architecture.md) · [T07](./ADR-T07-rabbitmq-masstransit.md) · [T22](./ADR-T22-technical-building-blocks.md)
+[T02](./ADR-T02-monorepo.md) · [T03](./ADR-T03-clean-architecture.md) · [T07](./ADR-T07-rabbitmq-masstransit.md) · [T22](./ADR-T22-technical-building-blocks.md) · [T24](./ADR-T24-rest-api-versioning.md)

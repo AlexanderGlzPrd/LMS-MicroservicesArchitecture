@@ -45,6 +45,7 @@ Existen **dos series** con propósitos distintos. **No se renumeran**: coexisten
 | [T21](./ADR-T21-testing-strategy.md) | Estrategia de pruebas | Aceptado | 2026-07-16 |
 | [T22](./ADR-T22-technical-building-blocks.md) | Building blocks técnicos compartidos | Aceptado | 2026-07-16 |
 | [T23](./ADR-T23-paid-enrollment-command.md) | Apertura mínima de Enrollment: ConcederMatriculaPorPagoCapturado | **Aceptado con riesgos residuales** | 2026-07-16 |
+| [T24](./ADR-T24-rest-api-versioning.md) | Versionado de las APIs REST | Aceptado | 2026-08-12 |
 
 ## Estados posibles
 `Propuesto` · `Aceptado` · `Aceptado con riesgos residuales` · `Reemplazado por ADR-XXXX` · `Obsoleto`

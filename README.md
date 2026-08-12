@@ -76,12 +76,149 @@ Documentos de dominio previos: [Lenguaje Ubicuo](./docs/lenguaje-ubicuo.md) ·
 .NET · ASP.NET Core · EF Core · PostgreSQL · RabbitMQ con MassTransit · YARP · Keycloak ·
 OpenTelemetry · Prometheus · Grafana · Jaeger · Docker · Docker Compose · Kubernetes.
 
-## 9. Roadmap por incrementos
+## 9. Requisitos de ejecución
+
+| Requisito | Versión | Para qué |
+|---|---|---|
+| .NET SDK | **10.0.302 o superior** dentro de 10.0 | compilar y ejecutar; la versión está fijada en `global.json` |
+| Docker Desktop | cualquiera reciente | PostgreSQL local y pruebas de integración |
+| `dotnet-ef` | 10.x | generar y aplicar migraciones |
+| IDE | con soporte .NET 10 | Visual Studio 2026, VS Code + C# Dev Kit, o Rider |
+
+```bash
+dotnet --list-sdks                        # debe aparecer un 10.0.x
+dotnet tool install --global dotnet-ef    # o: dotnet tool update --global dotnet-ef
+```
+
+> **Visual Studio 2022 no sirve.** Su MSBuild es 17.x y .NET 10 exige 18.x; al abrir la solución
+> falla con `El SDK "Microsoft.NET.Sdk" especificado no se pudo encontrar`. Hay que usar
+> Visual Studio 2026. La compilación por línea de comandos funciona con cualquier IDE instalado.
+
+## 10. Ejecución local
+
+Todo se ejecuta desde la raíz del repositorio. El orden **no es opcional**: la API no aplica
+migraciones al arrancar (ver 10.2).
+
+### 10.1 Levantar PostgreSQL
+
+```bash
+docker compose up -d
+docker compose ps          # esperar STATUS = healthy
+```
+
+Levanta un único contenedor `lms-postgres` (PostgreSQL 17) en el puerto `5432`. En el primer
+arranque ejecuta `deploy/postgres/init/01-course-authoring.sql`, que crea la base `course_authoring`
+y el usuario de servicio `course_authoring_user` **sin privilegios administrativos** (ADR-T04):
+`NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, con `CONNECT` sobre su base y `USAGE` + `CREATE` sobre
+su esquema `public`.
+
+Comprobación de los privilegios del usuario de servicio:
+
+```bash
+docker exec lms-postgres psql -U postgres -d postgres -c \
+  "SELECT rolsuper, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname = 'course_authoring_user';"
+
+docker exec lms-postgres psql -U postgres -d course_authoring -c \
+  "SELECT has_database_privilege('course_authoring_user','course_authoring','CONNECT') AS db_connect,
+          has_schema_privilege('course_authoring_user','public','USAGE')               AS schema_usage,
+          has_schema_privilege('course_authoring_user','public','CREATE')              AS schema_create;"
+```
+
+Los tres primeros deben ser `f`; los tres siguientes, `t`.
+
+> El script de inicialización **solo se ejecuta con el directorio de datos vacío**. Si lo modificas,
+> hay que recrear el volumen: `docker compose down -v && docker compose up -d`.
+
+### 10.2 Aplicar las migraciones — prerrequisito obligatorio
+
+```bash
+dotnet ef database update --project src/services/course-authoring/CourseAuthoring.Infrastructure
+```
+
+**Las migraciones se aplican siempre a mano.** No hay `Database.Migrate()` en el arranque: la
+estrategia de despliegue se decide con Docker y Kubernetes (incrementos 12 y 15).
+
+> **Si te saltas este paso, la API arranca igualmente y `GET /health` responde `Healthy`**, porque la
+> comprobación de salud verifica únicamente la **conectividad** con PostgreSQL, no el estado del
+> esquema. El fallo aparecerá en el primer `POST /api/v1/courses`, devuelto como
+> `application/problem+json`.
+
+Verificación de que la tabla existe con sus cinco columnas:
+
+```bash
+docker exec lms-postgres psql -U postgres -d course_authoring -c "\d courses"
+```
+
+La fábrica de tiempo de diseño usa por defecto la cadena de conexión local. Para apuntar a otra base:
+
+```bash
+# PowerShell
+$env:COURSE_AUTHORING_CONNECTION = "Host=...;Database=...;Username=...;Password=..."
+```
+
+### 10.3 Arrancar la API
+
+```bash
+dotnet run --project src/services/course-authoring/CourseAuthoring.Api --launch-profile http
+```
+
+Queda escuchando en `http://localhost:5195` con `ASPNETCORE_ENVIRONMENT=Development`.
+
+| Recurso | URL | Disponible en |
+|---|---|---|
+| Documentación interactiva (Scalar) | `http://localhost:5195/scalar/v1` | **solo Development** |
+| Documento OpenAPI | `http://localhost:5195/openapi/v1.json` | **solo Development** |
+| Estado del servicio | `http://localhost:5195/health` | siempre |
+
+Todos los endpoints de negocio llevan la versión en la ruta: `/api/v{n}/...` (ADR-T24). Cada versión
+publica su propio documento OpenAPI en `/openapi/v{n}.json` y las respuestas incluyen la cabecera
+`api-supported-versions`. `/health` queda fuera del versionado: es un contrato operativo, no de negocio.
+
+### 10.4 Probar los endpoints
+
+```bash
+# Crear un curso
+curl -i -X POST http://localhost:5195/api/v1/courses \
+  -H "X-Instructor-Id: 018f2c4a-0000-7000-8000-000000000001" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Microservicios con .NET 10"}'
+
+# Consultarlo (sustituir por el id devuelto en la cabecera Location)
+curl -i http://localhost:5195/api/v1/courses/<id>
+```
+
+`POST /api/v1/courses` devuelve `201` con cabecera `Location` y el curso en estado `Draft`.
+Los errores viajan siempre como `application/problem+json`: `400` si el cuerpo es inválido o falta
+la cabecera `X-Instructor-Id`, `404` si el curso no existe, `500` ante un fallo no controlado.
+
+> **`X-Instructor-Id` no es un mecanismo de seguridad.** Es un tapón de desarrollo detrás de la
+> abstracción `ICurrentActor`: cualquier cliente puede enviar el identificador que quiera. Cuando
+> entre Keycloak (ADR-T15, incremento 11) se sustituye el adaptador por uno que lea el `sub` del
+> token, sin tocar los casos de uso.
+
+### 10.5 Ejecutar las pruebas
+
+```bash
+dotnet test LMS.sln
+```
+
+Dos proyectos: pruebas unitarias de dominio y pruebas de integración. **Las de integración exigen
+Docker en marcha**: levantan su propio contenedor PostgreSQL con Testcontainers, le aplican las
+migraciones y no tocan la base del `docker-compose`.
+
+### 10.6 Detener el entorno
+
+```bash
+docker compose down       # conserva los datos
+docker compose down -v    # elimina también el volumen
+```
+
+## 11. Roadmap por incrementos
 
 | # | Incremento | Estado |
 |---:|---|---|
-| 1 | Documentación, ADR y diagramas | **En curso** |
-| 2 | Course Authoring | Pendiente |
+| 1 | Documentación, ADR y diagramas | **Completado** |
+| 2 | Course Authoring | **En curso** — base ejecutable |
 | 3 | Enrollment | Pendiente |
 | 4 | Learning | Pendiente |
 | 5 | Broker y flujo Enrollment → Learning | Pendiente |
@@ -97,25 +234,36 @@ OpenTelemetry · Prometheus · Grafana · Jaeger · Docker · Docker Compose · 
 | 15 | Kubernetes | Pendiente |
 | 16 | Pruebas y evidencias | Pendiente |
 
-## 10. Requisitos académicos
+## 12. Requisitos académicos
 
 La trazabilidad completa de los criterios de los tres cursos está en
 [academic-traceability.md](./docs/architecture/academic-traceability.md).
 En esta fase el estado máximo posible es **Diseñado / Documentado / Pendiente**: no se marca ningún
 criterio como implementado, probado ni demostrable.
 
-## 11. Estado de implementación
+## 13. Estado de implementación
 
 | Aspecto | Estado |
 |---|---|
 | Documentación y ADR | **Documentado** |
 | Diagramas iniciales | **Documentado** |
-| Código de servicios | **No existe** |
-| Contenedores y manifiestos | **No existen** |
-| Pruebas | **No existen** |
+| Código de servicios | **Parcial** — `course-authoring` compila, arranca y persiste; los otros siete no existen |
+| Contenedores y manifiestos | **Parcial** — `docker-compose.yml` solo con PostgreSQL; sin `Dockerfile` de servicio ni Kubernetes |
+| Pruebas | **Parcial** — unitarias de dominio e integración con Testcontainers en `course-authoring` |
 
-## 12. Secciones pendientes de este README
+### Alcance real de `course-authoring` hoy
 
-Se completarán en incrementos posteriores: requisitos de ejecución · ejecución local con Docker
-Compose · despliegue en Kubernetes · configuración de Keycloak · configuración del Gateway ·
-configuración del broker · observabilidad · colección de pruebas · troubleshooting.
+**Implementado (SPEC 01):** agregado `Course` con identificadores fuertemente tipados ·
+`POST /api/v1/courses` y `GET /api/v1/courses/{id}` con versionado en la ruta (ADR-T24) ·
+persistencia con EF Core y PostgreSQL · OpenAPI y Scalar en
+Development · errores en `application/problem+json` · `/health` de conectividad · logging
+estructurado en consola.
+
+**No implementado todavía:** entidad `Lesson` · acción `Publish` y estado `Published` · republicación
+y copia de trabajo (ADR-0002) · catálogo · autorización real · eventos de dominio, Outbox y broker.
+
+## 14. Secciones pendientes de este README
+
+Se completarán en incrementos posteriores: ejecución del stack completo con Docker Compose ·
+despliegue en Kubernetes · configuración de Keycloak · configuración del Gateway · configuración del
+broker · observabilidad · colección de pruebas · troubleshooting.
