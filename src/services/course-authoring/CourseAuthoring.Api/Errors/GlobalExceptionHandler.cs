@@ -1,5 +1,5 @@
 using CourseAuthoring.Api.Actor;
-using CourseAuthoring.Domain.Courses;
+using CourseAuthoring.Domain.Courses.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 namespace CourseAuthoring.Api.Errors;
 
