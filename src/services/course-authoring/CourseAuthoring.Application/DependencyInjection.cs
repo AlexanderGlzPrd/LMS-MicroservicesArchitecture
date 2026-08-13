@@ -1,5 +1,6 @@
 using CourseAuthoring.Application.Catalog.BrowseCatalog;
 using CourseAuthoring.Application.Catalog.GetPublishedCourse;
+using CourseAuthoring.Application.Catalog.GetPublishedLessonIds;
 using CourseAuthoring.Application.Courses.AddLesson;
 using CourseAuthoring.Application.Courses.CreateCourse;
 using CourseAuthoring.Application.Courses.GetCourseById;
@@ -36,6 +37,7 @@ public static class DependencyInjection
 
         services.AddScoped<BrowseCatalogHandler>();
         services.AddScoped<GetPublishedCourseHandler>();
+        services.AddScoped<GetPublishedLessonIdsHandler>();
 
         return services;
     }

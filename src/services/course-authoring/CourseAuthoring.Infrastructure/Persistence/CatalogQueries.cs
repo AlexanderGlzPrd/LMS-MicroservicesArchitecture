@@ -85,4 +85,31 @@ internal sealed class CatalogQueries(CourseAuthoringDbContext context) : ICatalo
             course.PublishedContentUpdatedAt,
             [.. lessons.Select(lesson => LessonView.From(lesson))]);
     }
+
+    public async Task<CourseLessonIdsView?> GetPublishedLessonIdsAsync(
+        CourseId courseId,
+        CancellationToken cancellationToken)
+    {
+        var isPublished = await context.Courses
+            .AsNoTracking()
+            .AnyAsync(
+                candidate => candidate.Id == courseId && candidate.Status == CourseStatus.Published,
+                cancellationToken);
+
+        if (!isPublished)
+        {
+            return null;
+        }
+
+        var lessonIds = await context.PublishedLessons
+            .AsNoTracking()
+            .Where(lesson => lesson.CourseId == courseId)
+            .OrderBy(lesson => lesson.Position)
+            .Select(lesson => lesson.Id)
+            .ToListAsync(cancellationToken);
+
+        return new CourseLessonIdsView(
+            courseId.Value,
+            [.. lessonIds.Select(lessonId => lessonId.Value)]);
+    }
 }

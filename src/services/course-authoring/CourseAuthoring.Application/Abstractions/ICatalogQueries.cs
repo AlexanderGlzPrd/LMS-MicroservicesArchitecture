@@ -13,4 +13,8 @@ public interface ICatalogQueries
     Task<CatalogCourseView?> GetPublishedCourseAsync(
         CourseId courseId,
         CancellationToken cancellationToken);
+
+    Task<CourseLessonIdsView?> GetPublishedLessonIdsAsync(
+        CourseId courseId,
+        CancellationToken cancellationToken);
 }

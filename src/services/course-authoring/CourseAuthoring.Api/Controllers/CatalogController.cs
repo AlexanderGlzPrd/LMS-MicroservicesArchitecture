@@ -4,6 +4,7 @@ using Asp.Versioning;
 using CourseAuthoring.Api.Contracts;
 using CourseAuthoring.Application.Catalog.BrowseCatalog;
 using CourseAuthoring.Application.Catalog.GetPublishedCourse;
+using CourseAuthoring.Application.Catalog.GetPublishedLessonIds;
 using CourseAuthoring.Domain.Courses;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,7 +15,8 @@ namespace CourseAuthoring.Api.Controllers;
 [Route("api/v{version:apiVersion}/catalog/courses")]
 public sealed class CatalogController(
     BrowseCatalogHandler browseCatalogHandler,
-    GetPublishedCourseHandler getPublishedCourseHandler) : ControllerBase
+    GetPublishedCourseHandler getPublishedCourseHandler,
+    GetPublishedLessonIdsHandler getPublishedLessonIdsHandler) : ControllerBase
 {
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
@@ -58,5 +60,27 @@ public sealed class CatalogController(
         }
 
         return Ok(CatalogCourseResponse.From(view));
+    }
+
+    [HttpGet("{courseId:guid}/lesson-ids")]
+    [ProducesResponseType<CatalogCourseLessonIdsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CatalogCourseLessonIdsResponse>> GetLessonIds(
+        Guid courseId,
+        CancellationToken cancellationToken)
+    {
+        var view = await getPublishedLessonIdsHandler.HandleAsync(
+            new GetPublishedLessonIdsQuery(new CourseId(courseId)),
+            cancellationToken);
+
+        if (view is null)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Curso no encontrado en el catalogo",
+                detail: $"No hay ningun curso publicado con identificador {courseId}.");
+        }
+
+        return Ok(CatalogCourseLessonIdsResponse.From(view));
     }
 }
