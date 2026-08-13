@@ -1,0 +1,2 @@
+namespace Enrollments.Application.Enrollments.ListStudentEnrollments;
+public sealed record ListStudentEnrollmentsQuery;

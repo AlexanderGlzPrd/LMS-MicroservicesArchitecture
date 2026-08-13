@@ -3,10 +3,21 @@
   <ItemGroup>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Enrollments.Application\Enrollments.Application.csproj" />
+  </ItemGroup>
+
+  <!--
+    Los adaptadores son internal. La traduccion que hace el adaptador ACL solo se puede
+    verificar llamandolo directamente con un HttpMessageHandler de doble: por HTTP no se
+    puede provocar un timeout ni un codigo inesperado de forma determinista.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Enrollments.Integration.Tests" />
   </ItemGroup>
 
 </Project>
