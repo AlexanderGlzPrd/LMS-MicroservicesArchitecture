@@ -1,4 +1,6 @@
 using Learning.Application.Progress.ConfirmCompletion;
+using Learning.Application.Progress.GetCourseProgress;
+using Learning.Application.Progress.ListStudentProgress;
 using Learning.Application.Progress.MarkLessonCompleted;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +16,9 @@ public static class DependencyInjection
 
         services.AddScoped<MarkLessonCompletedHandler>();
         services.AddScoped<ConfirmCompletionHandler>();
+
+        services.AddScoped<ListStudentProgressHandler>();
+        services.AddScoped<GetCourseProgressHandler>();
 
         return services;
     }
