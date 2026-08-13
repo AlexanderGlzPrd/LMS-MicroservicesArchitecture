@@ -1,0 +1,18 @@
+using Enrollments.Application.Enrollments.EnrollStudent;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace Enrollments.Application;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddApplication(this IServiceCollection services)
+    {
+        services.TryAddSingleton(TimeProvider.System);
+
+        services.AddScoped<EnrollStudentHandler>();
+
+        return services;
+    }
+}
