@@ -2,6 +2,7 @@ using Asp.Versioning;
 
 using Learning.Api.Actor;
 using Learning.Api.Errors;
+using Learning.Api.Time;
 using Learning.Application;
 using Learning.Application.Abstractions;
 using Learning.Infrastructure;
@@ -26,6 +27,7 @@ if (string.IsNullOrWhiteSpace(
         $"Falta '{CourseAuthoringOptions.SectionName}:BaseUrl' en la configuracion.");
 }
 
+builder.Services.AddSingleton<TimeProvider>(new MicrosecondTimeProvider(TimeProvider.System));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(connectionString, builder.Configuration);
 
