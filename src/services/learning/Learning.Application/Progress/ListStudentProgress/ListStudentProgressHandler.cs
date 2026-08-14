@@ -1,5 +1,4 @@
 using Learning.Application.Abstractions;
-
 namespace Learning.Application.Progress.ListStudentProgress;
 
 public sealed class ListStudentProgressHandler(
