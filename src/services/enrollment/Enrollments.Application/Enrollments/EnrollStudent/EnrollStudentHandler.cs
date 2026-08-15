@@ -14,7 +14,7 @@ public sealed class EnrollStudentHandler(
         EnrollStudentCommand command,
         CancellationToken cancellationToken)
     {
-        var studentId = currentActor.StudentId;
+        var studentId = currentActor.StudentId; //id temporal obtenido de la cabecera, se reemplaza con el idtoken del jwt en el futuro
 
         var existing = await enrollments.FindAsync(studentId, command.CourseId, cancellationToken);
 

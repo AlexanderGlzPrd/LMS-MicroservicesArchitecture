@@ -1,6 +1,5 @@
 using Enrollments.Application.Enrollments;
 namespace Enrollments.Api.Contracts;
-
 public sealed record EnrollmentResponse(
     Guid Id,
     Guid StudentId,

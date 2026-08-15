@@ -1,9 +1,7 @@
 using CourseAuthoring.Domain.Abstractions;
 using CourseAuthoring.Domain.Courses.Events;
 using CourseAuthoring.Domain.Courses.Exceptions;
-
 namespace CourseAuthoring.Domain.Courses;
-
 public sealed class Course
 {
     private readonly List<Lesson> _workingLessons = [];
@@ -14,7 +12,6 @@ public sealed class Course
     {
     }
 
-    /// <exception cref="InvalidCourseTitleException">Si el titulo esta vacio o son solo espacios.</exception>
     public static Course Create(
         CourseId id,
         InstructorId instructorId,
@@ -36,7 +33,6 @@ public sealed class Course
         };
     }
 
-    /// <exception cref="CourseOwnershipException">Si el actor no es el propietario.</exception>
     public LessonId AddLesson(
         InstructorId actor,
         LessonId lessonId,
@@ -52,8 +48,6 @@ public sealed class Course
         return lessonId;
     }
 
-    /// <exception cref="CourseOwnershipException">Si el actor no es el propietario.</exception>
-    /// <exception cref="LessonNotFoundException">Si la leccion no pertenece a este curso.</exception>
     public void UpdateLesson(
         InstructorId actor,
         LessonId lessonId,
@@ -77,7 +71,6 @@ public sealed class Course
         Recompact();
     }
 
-    /// <exception cref="InvalidLessonOrderException">Si la lista no es una permutacion exacta.</exception>
     public void ReorderLessons(InstructorId actor, IReadOnlyList<LessonId> orderedLessonIds)
     {
         EnsureOwnership(actor);
@@ -94,7 +87,6 @@ public sealed class Course
         }
     }
 
-    /// <exception cref="InvalidCourseTitleException">Si el titulo esta vacio o son solo espacios.</exception>
     public void Rename(InstructorId actor, string title)
     {
         EnsureOwnership(actor);
@@ -107,9 +99,6 @@ public sealed class Course
         Title = title;
     }
 
-    /// <exception cref="CourseOwnershipException">Si el actor no es el propietario.</exception>
-    /// <exception cref="InvalidCourseStateException">Si el curso no esta en Draft.</exception>
-    /// <exception cref="CourseHasNoLessonsException">Si no hay lecciones de trabajo.</exception>
     public void Publish(InstructorId actor, DateTimeOffset publishedAt)
     {
         EnsureOwnership(actor);
@@ -125,10 +114,6 @@ public sealed class Course
         _domainEvents.Add(new CoursePublished(Id, InstructorId, publishedAt));
     }
 
-    // Devuelve false cuando no hay cambios estructurales: el no-op no toca fechas ni registra evento.
-    /// <exception cref="CourseOwnershipException">Si el actor no es el propietario.</exception>
-    /// <exception cref="InvalidCourseStateException">Si el curso no esta publicado.</exception>
-    /// <exception cref="CourseHasNoLessonsException">Si no hay lecciones de trabajo.</exception>
     public bool Republish(InstructorId actor, DateTimeOffset republishedAt)
     {
         EnsureOwnership(actor);
@@ -174,8 +159,6 @@ public sealed class Course
         }
     }
 
-    // "Reemplazar el snapshot" es semantica de dominio. Como se persiste ese resultado
-    // (reconciliando por LessonId) es cosa de Infrastructure.
     private void ReplacePublishedContent()
     {
         _publishedLessons.Clear();
@@ -184,7 +167,6 @@ public sealed class Course
         PublishedTitle = Title;
     }
 
-    // La verdad esta en los datos: no hay bandera de cambios pendientes que pueda desincronizarse.
     private bool HasStructuralChanges()
     {
         if (!string.Equals(Title, PublishedTitle, StringComparison.Ordinal))
@@ -246,27 +228,15 @@ public sealed class Course
     }
 
     public CourseId Id { get; private set; }
-
     public InstructorId InstructorId { get; private set; }
-
     public string Title { get; private set; } = null!;
-
     public CourseStatus Status { get; private set; }
-
     public DateTimeOffset CreatedAt { get; private set; }
-
     public string? PublishedTitle { get; private set; }
-
-    // Primera publicacion: no cambia al republicar.
     public DateTimeOffset? PublishedAt { get; private set; }
-
-    // Ultima republicacion con cambios.
     public DateTimeOffset? PublishedContentUpdatedAt { get; private set; }
-
     public IReadOnlyList<Lesson> WorkingLessons => [.. _workingLessons.OrderBy(lesson => lesson.Position)];
-
     public IReadOnlyList<PublishedLesson> PublishedLessons =>
         [.. _publishedLessons.OrderBy(lesson => lesson.Position)];
-
     public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 }

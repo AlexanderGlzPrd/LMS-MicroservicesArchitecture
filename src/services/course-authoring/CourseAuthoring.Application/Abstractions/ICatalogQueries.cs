@@ -2,7 +2,6 @@ using CourseAuthoring.Application.Catalog;
 using CourseAuthoring.Application.Common;
 using CourseAuthoring.Domain.Courses;
 namespace CourseAuthoring.Application.Abstractions;
-
 public interface ICatalogQueries
 {
     Task<PagedResult<CatalogCourseSummaryView>> BrowseAsync(

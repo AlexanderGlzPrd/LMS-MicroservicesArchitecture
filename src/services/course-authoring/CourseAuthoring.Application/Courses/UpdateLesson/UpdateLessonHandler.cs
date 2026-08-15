@@ -1,15 +1,11 @@
 using CourseAuthoring.Application.Abstractions;
-
 namespace CourseAuthoring.Application.Courses.UpdateLesson;
-
 public sealed class UpdateLessonHandler(
     ICourseRepository courses,
     IUnitOfWork unitOfWork,
     ICurrentActor currentActor)
 {
-    /// <summary>
-    /// Devuelve <c>null</c> si el curso no existe.
-    /// </summary>
+
     public async Task<LessonView?> HandleAsync(
         UpdateLessonCommand command,
         CancellationToken cancellationToken)

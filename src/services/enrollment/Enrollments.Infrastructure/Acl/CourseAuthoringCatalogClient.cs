@@ -1,10 +1,7 @@
 using System.Net;
-
 using Enrollments.Application.Abstractions;
 using Enrollments.Domain.Enrollments;
-
 namespace Enrollments.Infrastructure.Acl;
-
 internal sealed class CourseAuthoringCatalogClient(HttpClient httpClient) : ICourseAvailability
 {
     public async Task<CourseAvailability> CheckAsync(

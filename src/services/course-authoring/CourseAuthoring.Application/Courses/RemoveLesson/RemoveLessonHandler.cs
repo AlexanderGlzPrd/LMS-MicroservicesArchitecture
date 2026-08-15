@@ -1,5 +1,4 @@
 using CourseAuthoring.Application.Abstractions;
-
 namespace CourseAuthoring.Application.Courses.RemoveLesson;
 
 public sealed class RemoveLessonHandler(
@@ -7,9 +6,7 @@ public sealed class RemoveLessonHandler(
     IUnitOfWork unitOfWork,
     ICurrentActor currentActor)
 {
-    /// <summary>
-    /// Devuelve <c>false</c> si el curso no existe.
-    /// </summary>
+
     public async Task<bool> HandleAsync(
         RemoveLessonCommand command,
         CancellationToken cancellationToken)

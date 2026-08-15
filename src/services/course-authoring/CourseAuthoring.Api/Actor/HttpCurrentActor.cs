@@ -1,7 +1,6 @@
 using CourseAuthoring.Application.Abstractions;
 using CourseAuthoring.Domain.Courses;
 namespace CourseAuthoring.Api.Actor;
-
 internal sealed class HttpCurrentActor(IHttpContextAccessor httpContextAccessor) : ICurrentActor
 {
     public const string HeaderName = "X-Instructor-Id"; // Identificador temporal, luego se tomará el jwt
