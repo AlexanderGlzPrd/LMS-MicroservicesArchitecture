@@ -28,7 +28,7 @@
 |---|---|---|---|
 | MatricularEstudiante | comando | **Estudiante (sí mismo)**, `ActorId == StudentId` | acceso concedido · `EstudianteMatriculado` |
 | **ConcederMatriculaPorPagoCapturado** | **comando interno por mensaje** | `paid-enrollment` | acceso concedido · `EstudianteMatriculado` **solo si se crea** |
-| ConsultarAcceso | consulta | Learning / estudiante / paid-enrollment | acceso sí/no |
+| ConsultarAcceso | consulta | Estudiante / paid-enrollment | acceso sí/no |
 | ListarCursosMatriculadosDelEstudiante | consulta | Estudiante | `CourseId`s |
 
 Ambos comandos comparten **las mismas invariantes y el mismo evento**. Diferencias en
