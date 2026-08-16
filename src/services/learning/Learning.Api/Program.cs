@@ -7,7 +7,10 @@ using Learning.Application;
 using Learning.Application.Abstractions;
 using Learning.Infrastructure;
 using Learning.Infrastructure.Acl;
+using Learning.Infrastructure.Messaging;
 using Learning.Infrastructure.Persistence;
+
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 using Scalar.AspNetCore;
 
@@ -25,6 +28,13 @@ if (string.IsNullOrWhiteSpace(
 {
     throw new InvalidOperationException(
         $"Falta '{CourseAuthoringOptions.SectionName}:BaseUrl' en la configuracion.");
+}
+
+if (string.IsNullOrWhiteSpace(
+        builder.Configuration[$"{RabbitMqOptions.SectionName}:Host"]))
+{
+    throw new InvalidOperationException(
+        $"Falta '{RabbitMqOptions.SectionName}:Host' en la configuracion.");
 }
 
 builder.Services.AddSingleton<TimeProvider>(new MicrosecondTimeProvider(TimeProvider.System));
@@ -68,7 +78,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = registration => !registration.Tags.Contains("masstransit"),
+});
 
 app.Run();
 

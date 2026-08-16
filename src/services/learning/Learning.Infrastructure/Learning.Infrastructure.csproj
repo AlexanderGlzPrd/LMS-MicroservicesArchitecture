@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="MassTransit.RabbitMQ" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Extensions.Http" />
@@ -9,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Learning.Application\Learning.Application.csproj" />
+    <ProjectReference Include="..\..\enrollment\Enrollments.Contracts\Enrollments.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
