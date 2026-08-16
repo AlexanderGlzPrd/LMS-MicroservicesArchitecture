@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-namespace Enrollments.Infrastructure.Messaging;
-internal static class OutboxSerialization
+namespace BuildingBlocks.Messaging;
+public static class OutboxSerialization
 {
     public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {

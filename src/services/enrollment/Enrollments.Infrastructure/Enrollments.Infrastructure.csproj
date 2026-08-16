@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Enrollments.Application\Enrollments.Application.csproj" />
     <ProjectReference Include="..\Enrollments.Contracts\Enrollments.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\building-blocks\BuildingBlocks.Messaging\BuildingBlocks.Messaging.csproj" />
   </ItemGroup>
 
   <ItemGroup>

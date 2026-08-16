@@ -1,4 +1,5 @@
 using System.Text.Json;
+using BuildingBlocks.Messaging;
 using Enrollments.Contracts.V1;
 using Enrollments.Infrastructure.Persistence;
 using MassTransit;

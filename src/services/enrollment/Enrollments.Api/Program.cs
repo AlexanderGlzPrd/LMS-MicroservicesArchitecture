@@ -1,5 +1,7 @@
 using Asp.Versioning;
 
+using BuildingBlocks.Messaging;
+
 using Enrollments.Api.Actor;
 using Enrollments.Api.Errors;
 using Enrollments.Api.Time;
@@ -7,7 +9,6 @@ using Enrollments.Application;
 using Enrollments.Application.Abstractions;
 using Enrollments.Infrastructure;
 using Enrollments.Infrastructure.Acl;
-using Enrollments.Infrastructure.Messaging;
 using Enrollments.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 

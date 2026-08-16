@@ -1,3 +1,4 @@
+using BuildingBlocks.Messaging;
 using Enrollments.Application.Abstractions;
 using Enrollments.Contracts.V1;
 using Enrollments.Infrastructure.Acl;

@@ -1,4 +1,4 @@
-namespace Enrollments.Infrastructure.Messaging;
+namespace BuildingBlocks.Messaging;
 public sealed class RabbitMqOptions
 {
     public const string SectionName = "Messaging:RabbitMq";
