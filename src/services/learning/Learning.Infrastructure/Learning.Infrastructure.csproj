@@ -12,6 +12,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Learning.Application\Learning.Application.csproj" />
     <ProjectReference Include="..\..\enrollment\Enrollments.Contracts\Enrollments.Contracts.csproj" />
+    <ProjectReference Include="..\Learning.Contracts\Learning.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\building-blocks\BuildingBlocks.Messaging\BuildingBlocks.Messaging.csproj" />
   </ItemGroup>
 
   <ItemGroup>

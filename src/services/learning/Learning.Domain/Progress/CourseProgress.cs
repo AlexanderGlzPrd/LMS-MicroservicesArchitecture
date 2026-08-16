@@ -1,9 +1,12 @@
+using Learning.Domain.Abstractions;
+using Learning.Domain.Progress.Events;
 using Learning.Domain.Progress.Exceptions;
 namespace Learning.Domain.Progress;
 
 public sealed class CourseProgress
 {
     private readonly List<CompletedLesson> _completedLessons = [];
+    private readonly List<IDomainEvent> _domainEvents = [];
 
     private CourseProgress()
     {
@@ -14,13 +17,17 @@ public sealed class CourseProgress
         EnsureNotEmpty(studentId.Value, nameof(studentId));
         EnsureNotEmpty(courseId.Value, nameof(courseId));
 
-        return new CourseProgress
+        var progress = new CourseProgress
         {
             StudentId = studentId,
             CourseId = courseId,
             Status = CourseProgressStatus.InProgress,
             StartedAt = startedAt,
         };
+
+        progress._domainEvents.Add(new CourseProgressStarted(startedAt));
+
+        return progress;
     }
 
     public bool MarkLessonCompleted(
@@ -41,10 +48,11 @@ public sealed class CourseProgress
         }
 
         _completedLessons.Add(CompletedLesson.Create(lessonId, now));
+        _domainEvents.Add(new LessonCompleted(lessonId.Value, now, publishedLessonIds.Count));
 
         if (Status == CourseProgressStatus.InProgress && MeetsCompletionCriteria(publishedLessonIds))
         {
-            Seal(now);
+            Seal(now, publishedLessonIds.Count);
         }
 
         return true;
@@ -62,20 +70,25 @@ public sealed class CourseProgress
             throw new CompletionNotReadyException();
         }
 
-        Seal(now);
+        Seal(now, publishedLessonIds.Count);
 
         return true;
     }
+
+    public void ClearDomainEvents() => _domainEvents.Clear();
+
     private bool MeetsCompletionCriteria(IReadOnlySet<LessonId> publishedLessonIds) =>
         publishedLessonIds.Count > 0 && publishedLessonIds.All(IsCompleted);
 
     private bool IsCompleted(LessonId lessonId) =>
         _completedLessons.Exists(completed => completed.LessonId == lessonId);
 
-    private void Seal(DateTimeOffset now)
+    private void Seal(DateTimeOffset now, int observedTotalLessonCount)
     {
         Status = CourseProgressStatus.Completed;
         CompletedAt = now;
+
+        _domainEvents.Add(new CourseProgressCompleted(now, observedTotalLessonCount));
     }
 
     private static void EnsureNotEmpty(Guid value, string identityName)
@@ -97,4 +110,6 @@ public sealed class CourseProgress
     public DateTimeOffset? CompletedAt { get; private set; }
 
     public IReadOnlyCollection<CompletedLesson> CompletedLessons => _completedLessons.AsReadOnly();
+
+    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 }
