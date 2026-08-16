@@ -1,7 +1,7 @@
 # ADR-T25 — Retirada de la creación provisional del Progreso y excepción única a T24 §6
 
 ## Estado
-Propuesto — 2026-08-15
+Aceptado — 2026-08-15
 
 ## Contexto
 `bounded-contexts.md` §4 y `application-flows.md` §3 fijan que el `ProgresoDelCurso` **nace al

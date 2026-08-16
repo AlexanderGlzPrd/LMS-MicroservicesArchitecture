@@ -1,5 +1,6 @@
 using Enrollments.Application.Abstractions;
 using Enrollments.Infrastructure.Acl;
+using Enrollments.Infrastructure.Messaging;
 using Enrollments.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,7 @@ public static class DependencyInjection
 
         services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IOutbox, OutboxWriter>();
 
         services.Configure<CourseAuthoringOptions>(
             configuration.GetSection(CourseAuthoringOptions.SectionName));
@@ -37,8 +39,6 @@ public static class DependencyInjection
         return services;
     }
 
-    // Sin la barra final, Uri descartaria el ultimo segmento de la ruta base al
-    // combinarla con la ruta relativa del catalogo.
     private static string EnsureTrailingSlash(string baseUrl) =>
         baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/";
 }
