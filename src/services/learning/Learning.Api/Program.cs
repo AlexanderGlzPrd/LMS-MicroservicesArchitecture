@@ -1,5 +1,7 @@
 using Asp.Versioning;
 
+using BuildingBlocks.Messaging;
+
 using Learning.Api.Actor;
 using Learning.Api.Errors;
 using Learning.Api.Time;
@@ -7,7 +9,6 @@ using Learning.Application;
 using Learning.Application.Abstractions;
 using Learning.Infrastructure;
 using Learning.Infrastructure.Acl;
-using Learning.Infrastructure.Messaging;
 using Learning.Infrastructure.Persistence;
 
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;

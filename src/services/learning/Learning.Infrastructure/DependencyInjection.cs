@@ -1,4 +1,6 @@
+using BuildingBlocks.Messaging;
 using Learning.Application.Abstractions;
+using Learning.Contracts.V1;
 using Learning.Infrastructure.Acl;
 using Learning.Infrastructure.Messaging;
 using Learning.Infrastructure.Persistence;
@@ -43,6 +45,8 @@ public static class DependencyInjection
     {
         services.Configure<RabbitMqOptions>(
             configuration.GetSection(RabbitMqOptions.SectionName));
+        services.Configure<OutboxOptions>(
+            configuration.GetSection(OutboxOptions.SectionName));
 
         var rabbitMq = configuration.GetSection(RabbitMqOptions.SectionName)
             .Get<RabbitMqOptions>() ?? new RabbitMqOptions();
@@ -62,6 +66,9 @@ public static class DependencyInjection
                         host.Username(rabbitMq.Username);
                         host.Password(rabbitMq.Password);
                     });
+
+                configurator.Message<CourseCompleted>(
+                    message => message.SetEntityName("lms.learning"));
 
                 configurator.ReceiveEndpoint("lms.learning.student-enrolled", endpoint =>
                 {
@@ -90,6 +97,14 @@ public static class DependencyInjection
                 });
             });
         });
+
+        var outbox = configuration.GetSection(OutboxOptions.SectionName)
+            .Get<OutboxOptions>() ?? new OutboxOptions();
+
+        if (outbox.Enabled)
+        {
+            services.AddHostedService<OutboxDispatcher>();
+        }
     }
 
     private static string EnsureTrailingSlash(string baseUrl) =>

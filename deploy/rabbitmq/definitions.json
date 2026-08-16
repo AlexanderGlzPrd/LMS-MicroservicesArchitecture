@@ -21,6 +21,24 @@
   ],
   "exchanges": [
     {
+      "name": "lms.learning",
+      "vhost": "/",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "lms.certification.course-completed",
+      "vhost": "/",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
       "name": "lms.enrollment",
       "vhost": "/",
       "type": "fanout",
@@ -41,6 +59,13 @@
   ],
   "queues": [
     {
+      "name": "lms.certification.course-completed",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
       "name": "lms.learning.student-enrolled",
       "vhost": "/",
       "durable": true,
@@ -49,6 +74,22 @@
     }
   ],
   "bindings": [
+    {
+      "source": "lms.learning",
+      "vhost": "/",
+      "destination": "lms.certification.course-completed",
+      "destination_type": "exchange",
+      "routing_key": "",
+      "arguments": {}
+    },
+    {
+      "source": "lms.certification.course-completed",
+      "vhost": "/",
+      "destination": "lms.certification.course-completed",
+      "destination_type": "queue",
+      "routing_key": "",
+      "arguments": {}
+    },
     {
       "source": "lms.enrollment",
       "vhost": "/",
