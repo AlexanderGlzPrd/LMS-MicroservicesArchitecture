@@ -9,10 +9,5 @@ public interface ICourseProgressRepository
         CourseId courseId,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<CourseProgress>> ListByStudentAsync(
-        StudentId studentId,
-        CourseProgressStatus? status,
-        CancellationToken cancellationToken);
-
     void Add(CourseProgress progress);
 }

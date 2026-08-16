@@ -22,11 +22,5 @@ internal sealed class RacingCourseProgressRepository(
         return progress;
     }
 
-    public Task<IReadOnlyList<CourseProgress>> ListByStudentAsync(
-        StudentId studentId,
-        CourseProgressStatus? status,
-        CancellationToken cancellationToken) =>
-        inner.ListByStudentAsync(studentId, status, cancellationToken);
-
     public void Add(CourseProgress progress) => inner.Add(progress);
 }

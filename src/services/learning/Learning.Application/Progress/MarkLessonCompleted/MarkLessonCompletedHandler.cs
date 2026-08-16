@@ -57,6 +57,6 @@ public sealed class MarkLessonCompletedHandler(
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        return CourseProgressView.From(progress);
+        return CourseProgressView.From(progress, publishedLessonIds.Count);
     }
 }

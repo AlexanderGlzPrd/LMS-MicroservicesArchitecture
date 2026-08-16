@@ -7,7 +7,10 @@ public sealed record CourseProgressResponse(
     string Status,
     DateTimeOffset StartedAt,
     DateTimeOffset? CompletedAt,
-    IReadOnlyList<Guid> CompletedLessonIds)
+    IReadOnlyList<Guid> CompletedLessonIds,
+    int CompletedLessonCount,
+    int? TotalLessonCount,
+    decimal? Percentage)
 {
     public static CourseProgressResponse From(CourseProgressView view) => new(
         view.StudentId,
@@ -15,5 +18,8 @@ public sealed record CourseProgressResponse(
         view.Status,
         view.StartedAt,
         view.CompletedAt,
-        view.CompletedLessonIds);
+        view.CompletedLessonIds,
+        view.CompletedLessonCount,
+        view.TotalLessonCount,
+        view.Percentage);
 }

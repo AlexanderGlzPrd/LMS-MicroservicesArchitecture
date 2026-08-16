@@ -174,38 +174,6 @@ public sealed class CourseProgressRepositoryTests(PostgresFixture fixture) : ICl
         }
     }
 
-    [Fact]
-    public async Task ListarPorEstudiante_FiltraPorEstadoEnLaBase()
-    {
-        var student = new StudentId(Guid.CreateVersion7());
-        var enCurso = new CourseId(Guid.CreateVersion7());
-        var finalizado = new CourseId(Guid.CreateVersion7());
-        var lesson = new LessonId(Guid.CreateVersion7());
-
-        await using (var writeContext = fixture.CreateContext())
-        {
-            writeContext.CourseProgresses.Add(CourseProgress.Start(student, enCurso, StartedAt));
-
-            var sellado = CourseProgress.Start(student, finalizado, StartedAt);
-            sellado.MarkLessonCompleted(lesson, Publicadas(lesson), FirstMark);
-            writeContext.CourseProgresses.Add(sellado);
-
-            await writeContext.SaveChangesAsync(CancellationToken.None);
-        }
-
-        await using var readContext = fixture.CreateContext();
-        var repository = new CourseProgressRepository(readContext);
-
-        var completados = await repository.ListByStudentAsync(
-            student, CourseProgressStatus.Completed, CancellationToken.None);
-
-        var todos = await repository.ListByStudentAsync(student, null, CancellationToken.None);
-
-        Assert.Equal([finalizado], completados.Select(progress => progress.CourseId));
-        Assert.Equal(2, todos.Count);
-        Assert.All(todos, progress => Assert.Equal(student, progress.StudentId));
-    }
-
     private static UnitOfWork CreateUnitOfWork(LearningDbContext context) => new(context);
 
     private static Task<CourseProgress?> FindAsync(

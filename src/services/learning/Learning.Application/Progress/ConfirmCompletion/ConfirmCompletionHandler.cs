@@ -37,6 +37,6 @@ public sealed class ConfirmCompletionHandler(
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        return CourseProgressView.From(progress);
+        return CourseProgressView.From(progress, lessonSet.LessonIds.Count);
     }
 }

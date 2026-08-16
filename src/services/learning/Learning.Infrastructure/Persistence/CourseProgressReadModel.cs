@@ -44,11 +44,15 @@ internal sealed class CourseProgressReadModel(LearningDbContext context) : ICour
         return [.. rows.Select(ToView)];
     }
 
+    // completed_lesson_dates es dato tecnico exclusivo del Read Model: no sale
+    // de aqui.
     private static CourseProgressView ToView(CourseProgressViewRow row) => new(
         row.StudentId,
         row.CourseId,
         row.Status,
         row.StartedAt,
         row.CompletedAt,
-        row.CompletedLessonIds);
+        row.CompletedLessonIds,
+        row.CompletedLessonCount,
+        row.TotalLessonCount);
 }

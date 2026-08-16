@@ -11,8 +11,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\building-blocks\BuildingBlocks.Messaging\BuildingBlocks.Messaging.csproj" />
-    <ProjectReference Include="..\Learning.Application\Learning.Application.csproj" />
-    <ProjectReference Include="..\Learning.Infrastructure\Learning.Infrastructure.csproj" />
+    <ProjectReference Include="..\Certification.Application\Certification.Application.csproj" />
+    <ProjectReference Include="..\Certification.Infrastructure\Certification.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
