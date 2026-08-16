@@ -47,6 +47,8 @@ Existen **dos series** con propósitos distintos. **No se renumeran**: coexisten
 | [T23](./ADR-T23-paid-enrollment-command.md) | Apertura mínima de Enrollment: ConcederMatriculaPorPagoCapturado | **Aceptado con riesgos residuales** | 2026-07-16 |
 | [T24](./ADR-T24-rest-api-versioning.md) | Versionado de las APIs REST | Aceptado | 2026-08-12 |
 | [T25](./ADR-T25-provisional-progress-bootstrap-retirement.md) | Retirada de la creación provisional del Progreso y excepción única a T24 §6 | Aceptado | 2026-08-15 |
+| [T26](./ADR-T26-provisional-student-directory.md) | Fuente provisional del nombre del estudiante en Certification | Aceptado | 2026-08-16 |
+| [T27](./ADR-T27-no-lesson-set-snapshot.md) | `ProgresoDelCurso` no persiste snapshot de `LessonIds` | Aceptado | 2026-08-16 |
 
 ## Estados posibles
 `Propuesto` · `Aceptado` · `Aceptado con riesgos residuales` · `Reemplazado por ADR-XXXX` · `Obsoleto`
