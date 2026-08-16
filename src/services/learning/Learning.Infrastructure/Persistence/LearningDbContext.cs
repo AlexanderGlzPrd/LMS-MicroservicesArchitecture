@@ -15,6 +15,8 @@ public sealed class LearningDbContext(DbContextOptions<LearningDbContext> option
 
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
+    internal DbSet<CourseProgressViewRow> CourseProgressViews => Set<CourseProgressViewRow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LearningDbContext).Assembly);

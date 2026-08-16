@@ -4,6 +4,7 @@ using Learning.Contracts.V1;
 using Learning.Infrastructure.Acl;
 using Learning.Infrastructure.Messaging;
 using Learning.Infrastructure.Persistence;
+using Learning.Infrastructure.Projection;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -21,6 +22,7 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString));
 
         services.AddScoped<ICourseProgressRepository, CourseProgressRepository>();
+        services.AddScoped<ICourseProgressReadModel, CourseProgressReadModel>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IInbox, InboxRecorder>();
 
@@ -28,6 +30,7 @@ public static class DependencyInjection
             configuration.GetSection(CourseAuthoringOptions.SectionName));
 
         AddMessaging(services, configuration);
+        AddProjection(services, configuration);
 
         services.AddHttpClient<ICurrentLessonSet, CourseAuthoringLessonSetClient>(
             (provider, client) =>
@@ -104,6 +107,20 @@ public static class DependencyInjection
         if (outbox.Enabled)
         {
             services.AddHostedService<OutboxDispatcher>();
+        }
+    }
+
+    private static void AddProjection(IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<ProjectionOptions>(
+            configuration.GetSection(ProjectionOptions.SectionName));
+
+        var projection = configuration.GetSection(ProjectionOptions.SectionName)
+            .Get<ProjectionOptions>() ?? new ProjectionOptions();
+
+        if (projection.Enabled)
+        {
+            services.AddHostedService<ProjectionDispatcher>();
         }
     }
 
