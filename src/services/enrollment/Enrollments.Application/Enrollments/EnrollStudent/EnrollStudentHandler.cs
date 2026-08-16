@@ -6,6 +6,7 @@ namespace Enrollments.Application.Enrollments.EnrollStudent;
 public sealed class EnrollStudentHandler(
     IEnrollmentRepository enrollments,
     IUnitOfWork unitOfWork,
+    IOutbox outbox,
     ICourseAvailability courseAvailability,
     ICurrentActor currentActor,
     TimeProvider timeProvider)
@@ -20,7 +21,7 @@ public sealed class EnrollStudentHandler(
 
         if (existing is not null)
         {
-            return new EnrollStudentResult(EnrollmentView.From(existing), Created: false);
+            return await AlreadyExistedAsync(existing, cancellationToken);
         }
 
         var availability = await courseAvailability.CheckAsync(command.CourseId, cancellationToken);
@@ -42,6 +43,7 @@ public sealed class EnrollStudentHandler(
             timeProvider.GetUtcNow());
 
         enrollments.Add(enrollment);
+        outbox.EnqueueStudentEnrolled(enrollment);
 
         try
         {
@@ -49,12 +51,32 @@ public sealed class EnrollStudentHandler(
         }
         catch (DuplicateEnrollmentException)
         {
-            return new EnrollStudentResult(
-                EnrollmentView.From(await RequireExistingAsync(studentId, command.CourseId, cancellationToken)),
-                Created: false);
+            var winner = await RequireExistingAsync(studentId, command.CourseId, cancellationToken);
+
+            return await AlreadyExistedAsync(winner, cancellationToken);
         }
 
         return new EnrollStudentResult(EnrollmentView.From(enrollment), Created: true);
+    }
+
+    private async Task<EnrollStudentResult> AlreadyExistedAsync(
+        Enrollment enrollment,
+        CancellationToken cancellationToken)
+    {
+        var enqueued = await outbox.EnsureStudentEnrolledAsync(enrollment, cancellationToken);
+
+        if (enqueued)
+        {
+            try
+            {
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (DuplicateOutboxMessageException)
+            {
+            }
+        }
+
+        return new EnrollStudentResult(EnrollmentView.From(enrollment), Created: false);
     }
 
     private async Task<Enrollment> RequireExistingAsync(
