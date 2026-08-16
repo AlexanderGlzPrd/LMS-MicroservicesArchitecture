@@ -3,9 +3,7 @@ using Learning.Application.Abstractions.Exceptions;
 using Learning.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-
 namespace Learning.Infrastructure.Persistence;
-
 internal sealed class UnitOfWork(LearningDbContext context) : IUnitOfWork
 {
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
@@ -19,6 +17,11 @@ internal sealed class UnitOfWork(LearningDbContext context) : IUnitOfWork
             context.ChangeTracker.Clear();
             throw new ConcurrentCourseProgressException(exception);
         }
+        catch (DbUpdateException exception) when (IsDuplicateInboxMessage(exception))
+        {
+            context.ChangeTracker.Clear();
+            throw new DuplicateInboxMessageException(exception);
+        }
     }
 
     private static bool IsKnownRace(DbUpdateException exception) =>
@@ -27,5 +30,12 @@ internal sealed class UnitOfWork(LearningDbContext context) : IUnitOfWork
             SqlState: PostgresErrorCodes.UniqueViolation,
             ConstraintName: CourseProgressConfiguration.PrimaryKeyName
                 or CompletedLessonConfiguration.PrimaryKeyName,
+        };
+
+    private static bool IsDuplicateInboxMessage(DbUpdateException exception) =>
+        exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: InboxMessageConfiguration.PrimaryKeyName,
         };
 }

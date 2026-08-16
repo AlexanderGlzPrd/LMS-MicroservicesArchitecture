@@ -71,6 +71,14 @@ public static class DependencyInjection
                     message => message.SetEntityName("lms.enrollment"));
             });
         });
+
+        var outbox = configuration.GetSection(OutboxOptions.SectionName)
+            .Get<OutboxOptions>() ?? new OutboxOptions();
+
+        if (outbox.Enabled)
+        {
+            services.AddHostedService<OutboxDispatcher>();
+        }
     }
 
     private static string EnsureTrailingSlash(string baseUrl) =>

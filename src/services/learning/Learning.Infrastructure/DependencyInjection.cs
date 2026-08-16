@@ -1,14 +1,12 @@
 using Learning.Application.Abstractions;
 using Learning.Infrastructure.Acl;
+using Learning.Infrastructure.Messaging;
 using Learning.Infrastructure.Persistence;
-
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-
 namespace Learning.Infrastructure;
-
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
@@ -21,6 +19,7 @@ public static class DependencyInjection
 
         services.AddScoped<ICourseProgressRepository, CourseProgressRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IInbox, InboxRecorder>();
 
         services.Configure<CourseAuthoringOptions>(
             configuration.GetSection(CourseAuthoringOptions.SectionName));
@@ -37,8 +36,6 @@ public static class DependencyInjection
         return services;
     }
 
-    // Sin la barra final, Uri descartaria el ultimo segmento de la ruta base al
-    // combinarla con la ruta relativa del catalogo.
     private static string EnsureTrailingSlash(string baseUrl) =>
         baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/";
 }
