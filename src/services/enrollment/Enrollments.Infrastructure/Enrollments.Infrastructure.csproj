@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <PackageReference Include="MassTransit" />
@@ -14,13 +14,9 @@
     <ProjectReference Include="..\Enrollments.Contracts\Enrollments.Contracts.csproj" />
   </ItemGroup>
 
-  <!--
-    Los adaptadores son internal. La traduccion que hace el adaptador ACL solo se puede
-    verificar llamandolo directamente con un HttpMessageHandler de doble: por HTTP no se
-    puede provocar un timeout ni un codigo inesperado de forma determinista.
-  -->
   <ItemGroup>
     <InternalsVisibleTo Include="Enrollments.Integration.Tests" />
+    <InternalsVisibleTo Include="Enrollments.Component.Tests" />
   </ItemGroup>
 
 </Project>

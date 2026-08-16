@@ -19,6 +19,11 @@ publicado antes de conceder una matrícula, y si no obtiene respuesta no matricu
 hace lo mismo con el contenido: antes de registrar cualquier lección pregunta a Course Authoring
 cuáles son las lecciones publicadas del curso, y si no puede saberlo no escribe nada.
 
+Matricularse y empezar un curso están conectados por un mensaje, no por una llamada: cuando
+Enrollment concede una matrícula, publica el hecho en RabbitMQ y Learning lo consume para crear el
+progreso del estudiante. Learning nunca pregunta a Enrollment. Eso significa que el progreso tarda
+un momento en aparecer, y que la matrícula se concede aunque el broker esté apagado.
+
 La finalización de un curso es irreversible: cuando el estudiante completa todas las lecciones
 publicadas, Learning la sella con su fecha y ninguna operación posterior la deshace ni la reescribe.
 
@@ -31,9 +36,10 @@ al publicar o republicar.
 - .NET 10 · ASP.NET Core (controladores)
 - Entity Framework Core 10 · Npgsql · PostgreSQL 17
 - Llamada síncrona entre servicios con `HttpClient` y timeout acotado
+- RabbitMQ 4 y MassTransit para el mensaje entre Enrollment y Learning
 - Versionado de API con `Asp.Versioning`
 - OpenAPI + Scalar para documentación interactiva
-- Docker Compose para la base de datos local
+- Docker Compose para la base de datos y el broker locales
 - xUnit y Testcontainers para las pruebas
 
 ## Requisitos
@@ -41,7 +47,7 @@ al publicar o republicar.
 | Requisito | Versión | Para qué |
 |---|---|---|
 | .NET SDK | 10.0.302 o superior dentro de 10.0 (fijada en `global.json`) | compilar y ejecutar |
-| Docker Desktop | reciente | PostgreSQL local y pruebas de integración |
+| Docker Desktop | reciente | PostgreSQL y RabbitMQ locales, y pruebas de integración |
 | `dotnet-ef` | 10.x | aplicar migraciones |
 
 ```bash
@@ -65,16 +71,31 @@ Todos los comandos siguientes se ejecutan desde la raíz del repositorio.
 
 ## Ejecución
 
-### 1. Levantar PostgreSQL
+### 1. Levantar PostgreSQL y RabbitMQ
 
 ```bash
 docker compose down -v     # obligatorio si ya tenías el volumen de una versión anterior
 docker compose up -d
-docker compose ps          # esperar STATUS = healthy
+docker compose ps          # esperar STATUS = healthy en los dos contenedores
 ```
 
-Levanta el contenedor `lms-postgres` (PostgreSQL 17) en el puerto `5432`. En el primer arranque
-ejecuta los scripts de `deploy/postgres/init/`, que crean:
+Levanta dos contenedores:
+
+| Contenedor | Puertos | Qué es |
+|---|---|---|
+| `lms-postgres` | `5432` | PostgreSQL 17 |
+| `lms-rabbitmq` | `5672` (AMQP) · `15672` (interfaz de gestión) | RabbitMQ 4 |
+
+La interfaz de gestión del broker está en <http://localhost:15672> con usuario `lms` y contraseña
+`lms`. Desde ahí se ven el exchange, la cola, cuántos mensajes hay pendientes y la cola de errores,
+sin escribir una sola consulta.
+
+Esas credenciales, el exchange `lms.enrollment`, la cola `lms.learning.student-enrolled` y sus
+enlaces salen de `deploy/rabbitmq/definitions.json`, que el broker importa al arrancar. Es la única
+fuente de su configuración inicial: el Compose no declara usuario ni contraseña por su cuenta. El
+archivo documenta cómo regenerar el hash de la contraseña si quieres cambiarla.
+
+PostgreSQL, en su primer arranque, ejecuta los scripts de `deploy/postgres/init/`, que crean:
 
 | Base | Usuario de servicio | Contraseña local |
 |---|---|---|
@@ -96,6 +117,10 @@ docker exec -e PGPASSWORD=enrollment_dev lms-postgres \
 > la base `learning` y la revocación de permisos son parte de esa inicialización. Sin recrear el
 > volumen, el tercer servicio no tiene dónde conectarse. Recrear el volumen borra los datos locales
 > de las tres bases, así que después hay que volver a aplicar las tres migraciones.
+>
+> Lo mismo vale para el broker: el usuario `lms` y la topología se importan con el volumen vacío. Si
+> cambias `deploy/rabbitmq/definitions.json`, `docker compose down -v && docker compose up -d` es lo
+> que vuelve a dejar el usuario y las colas en su sitio.
 
 ### 2. Aplicar las tres migraciones
 
@@ -140,6 +165,19 @@ de los dos arranca si falta**. Puedes ajustar la llamada sin recompilar:
 | `Services:CourseAuthoring:TimeoutSeconds` | `3` | cuánto se espera la respuesta |
 | `Services:CourseAuthoring:RetryAfterSeconds` | `5` | valor de la cabecera `Retry-After` del `503` |
 
+Enrollment y Learning también necesitan saber dónde está el broker. Lo leen de
+`Messaging:RabbitMq`, que en Development apunta a `localhost:5672` con el usuario `lms`, y
+**ninguno de los dos arranca si falta el host**. Fuera de Development, la contraseña se toma del
+entorno (`Messaging__RabbitMq__Password`); nunca está en el código.
+
+| Ajuste | Por defecto | Para qué |
+|---|---|---|
+| `Messaging:RabbitMq:Host` | `localhost` | dónde está el broker |
+| `Messaging:RabbitMq:Port` | `5672` | puerto AMQP |
+| `Messaging:Outbox:PollingIntervalSeconds` | `5` | cada cuánto revisa Enrollment si tiene mensajes por enviar |
+| `Messaging:Outbox:BatchSize` | `20` | cuántos envía como mucho en cada vuelta |
+| `Messaging:Outbox:PublishTimeoutSeconds` | `5` | cuánto espera como mucho cada envío |
+
 ### 4. Documentación y estado
 
 | Recurso | Course Authoring | Enrollment | Learning | Disponible en |
@@ -156,8 +194,8 @@ curl http://localhost:5197/health          # Healthy
 
 `/health` comprueba únicamente la conectividad de cada servicio con su propia base, no el estado del
 esquema: si te saltas las migraciones, responde `Healthy` y el fallo aparece en la primera escritura.
-El `/health` de Enrollment y el de Learning tampoco cambian porque Course Authoring esté caído: la
-salud de una dependencia no es la salud propia.
+El `/health` de Enrollment y el de Learning tampoco cambian porque Course Authoring o RabbitMQ estén
+caídos: la salud de una dependencia no es la salud propia.
 
 ### 5. Detener el entorno
 
@@ -220,6 +258,9 @@ sin publicar no existe, y Enrollment no inventa una distinción que el catálogo
 Las cuatro rutas exigen la cabecera `X-Student-Id` (un GUID) y operan siempre sobre el progreso de
 ese estudiante: no hay forma de leer ni de tocar el de otro.
 
+El progreso lo crea Learning al recibir el mensaje de matrícula, y es su única forma de nacer:
+ninguna de estas rutas lo crea. Mientras el mensaje no haya llegado, todas responden `404`.
+
 | Método y ruta | Qué hace |
 |---|---|
 | `POST /api/v1/me/course-progress/{courseId}/completed-lessons` | marca una lección como completada |
@@ -243,7 +284,7 @@ Códigos de estado de las dos escrituras:
 |---|---|
 | `200` | la escritura se ha aplicado, o no ha cambiado nada porque ya estaba hecha |
 | `400` | `X-Student-Id` falta, no es un GUID o es todo ceros; `courseId` de la ruta todo ceros; `lessonId` falta, no es un GUID o es todo ceros; `status` distinto de los dos valores admitidos |
-| `404` | confirmar la finalización de un curso en el que el estudiante no tiene progreso; consultar un progreso que no existe |
+| `404` | el estudiante no tiene progreso en ese curso: al marcar una lección, al confirmar la finalización o al consultarlo |
 | `422` | el curso no está publicado; la lección no pertenece al contenido publicado; confirmar sin haber completado todas las lecciones |
 | `503` | no se ha podido saber cuáles son las lecciones publicadas; incluye cabecera `Retry-After` |
 
@@ -297,6 +338,15 @@ curl -i -X POST http://localhost:5196/api/v1/enrollments \
 # 5. Consultar las matriculas propias
 curl -s http://localhost:5196/api/v1/me/enrollments -H "X-Student-Id: $STUDENT"
 curl -s http://localhost:5196/api/v1/me/enrollments/$COURSE -H "X-Student-Id: $STUDENT"
+
+# 5b. Consultar el progreso enseguida: todavia 404, el mensaje esta en camino
+curl -i http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+# HTTP/1.1 404 Not Found
+
+# 5c. Repetir hasta que aparezca. Suele tardar unos segundos
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+# {"studentId":"...","courseId":"...","status":"InProgress","startedAt":"...","completedAt":null,
+#  "completedLessonIds":[]}
 
 # 6. Pedir los identificadores de las lecciones publicadas del curso
 curl -s http://localhost:5195/api/v1/catalog/courses/$COURSE/lesson-ids
@@ -352,14 +402,101 @@ a matricular sin haber comprobado que el curso está publicado, y Learning prefi
 a registrar contra un contenido que no ha podido consultar: cualquier escritura puede ser la que
 selle la finalización, y un sello contra información obsoleta no se puede deshacer.
 
+### El progreso tarda un momento en aparecer
+
+Entre el `201` de la matrícula y la aparición del progreso pasa un rato corto y variable. Durante esa
+ventana es **correcto** que Learning responda `404` en las tres rutas que necesitan un progreso
+concreto, incluido marcar una lección:
+
+```bash
+curl -i -X POST http://localhost:5196/api/v1/enrollments \
+  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -d "{\"courseId\":\"$COURSE\"}"
+# HTTP/1.1 201 Created
+
+curl -i -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/completed-lessons \
+  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -d "{\"lessonId\":\"$LESSON1\"}"
+# HTTP/1.1 404 Not Found     <- el mensaje aun no ha llegado
+
+# Esperar unos segundos y repetir la misma peticion
+curl -i -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/completed-lessons \
+  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -d "{\"lessonId\":\"$LESSON1\"}"
+# HTTP/1.1 200 OK
+```
+
+No hay que hacer nada para que se cierre la ventana: se cierra sola. No se promete cuánto dura.
+
+### Con RabbitMQ apagado
+
+La matrícula se concede igual; lo único que se retrasa es el progreso.
+
+```bash
+docker compose stop rabbitmq
+
+curl -i http://localhost:5196/health
+# HTTP/1.1 200 OK    <- que el broker este caido no enferma al servicio
+
+curl -i -X POST http://localhost:5196/api/v1/enrollments \
+  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -d "{\"courseId\":\"$COURSE\"}"
+# HTTP/1.1 201 Created    <- la matricula existe
+
+curl -i http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+# HTTP/1.1 404 Not Found  <- y seguira asi mientras el broker no vuelva
+```
+
+El mensaje queda guardado en la base de Enrollment, esperando. Se puede ver:
+
+```bash
+docker exec -e PGPASSWORD=enrollment_dev lms-postgres \
+  psql -U enrollment_user -d enrollment \
+  -c "SELECT id, published_at, attempt_count FROM outbox_messages WHERE published_at IS NULL"
+```
+
+Al volver a arrancar el broker, el progreso aparece solo, sin repetir ninguna petición:
+
+```bash
+docker compose start rabbitmq
+
+# Esperar a que el contenedor este healthy y consultar de nuevo
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+# {"status":"InProgress","startedAt":"...", ...}
+```
+
+Fíjate en el `startedAt`: es el instante en que se concedió la matrícula, no aquel en que el broker
+se recuperó.
+
+### Matricularse sin haber arrancado Learning
+
+Learning puede estar apagado —incluso no haberse arrancado nunca— cuando alguien se matricula. El
+mensaje espera en la cola:
+
+```bash
+# Detener Learning (Ctrl+C en su terminal) y matricularse en otro curso publicado
+curl -i -X POST http://localhost:5196/api/v1/enrollments \
+  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -d "{\"courseId\":\"$OTRO_COURSE\"}"
+# HTTP/1.1 201 Created
+```
+
+En <http://localhost:15672>, la cola `lms.learning.student-enrolled` muestra un mensaje pendiente.
+Al arrancar Learning otra vez, lo consume y el progreso aparece:
+
+```bash
+dotnet run --project src/services/learning/Learning.Api --launch-profile http
+
+curl -s http://localhost:5197/api/v1/me/course-progress/$OTRO_COURSE -H "X-Student-Id: $STUDENT"
+```
+
 > **`X-Instructor-Id` y `X-Student-Id` no son autenticación.** Son un mecanismo temporal para poder
 > ejecutar el proyecto en Development: cualquiera puede escribir cualquier GUID y actuar como esa
 > persona. No expongas estos servicios fuera de tu máquina.
 
-> **Marcar una lección inicia el progreso sin comprobar que exista matrícula.** Hoy Learning no
-> consulta a Enrollment: cualquier estudiante puede empezar a avanzar por un curso publicado en el
-> que no se ha matriculado. El progreso no da acceso al contenido, que sigue viniendo del catálogo
-> público, pero es una diferencia real respecto a lo que cabría esperar al ejecutar el proyecto.
+> **El usuario `lms` del broker es compartido y tiene permisos amplios.** Vale para Development y
+> nada más: los dos servicios lo usan, y puede configurar, escribir y leer cualquier cosa. Un usuario
+> por servicio con permisos mínimos es trabajo pendiente.
 
 > **Las llamadas a Course Authoring solo tienen timeout.** Ni Enrollment ni Learning reintentan ni
 > abren cortacircuitos: si Course Authoring tarda más de `TimeoutSeconds` o falla, la petición se

@@ -1,7 +1,6 @@
 using Learning.Application.Abstractions;
 using Learning.Application.Abstractions.Exceptions;
 using Learning.Domain.Progress;
-
 namespace Learning.Application.Progress.MarkLessonCompleted;
 
 public sealed class MarkLessonCompletedHandler(
@@ -45,20 +44,13 @@ public sealed class MarkLessonCompletedHandler(
         IReadOnlySet<LessonId> publishedLessonIds,
         CancellationToken cancellationToken)
     {
-        var progress = await progresses.FindAsync(studentId, command.CourseId, cancellationToken);
-        var isNew = progress is null;
-
-        progress ??= CourseProgress.Start(studentId, command.CourseId, timeProvider.GetUtcNow());
+        var progress = await progresses.FindAsync(studentId, command.CourseId, cancellationToken)
+            ?? throw new CourseProgressNotFoundException(studentId, command.CourseId);
 
         var changed = progress.MarkLessonCompleted(
             command.LessonId,
             publishedLessonIds,
             timeProvider.GetUtcNow());
-
-        if (changed && isNew)
-        {
-            progresses.Add(progress);
-        }
 
         if (changed)
         {

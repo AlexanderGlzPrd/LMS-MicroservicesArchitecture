@@ -39,7 +39,6 @@ public static class DependencyInjection
         return services;
     }
 
-    // Learning no configura WaitUntilStarted: la API debe arrancar con el broker caido.
     private static void AddMessaging(IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<RabbitMqOptions>(
@@ -64,8 +63,6 @@ public static class DependencyInjection
                         host.Password(rabbitMq.Password);
                     });
 
-                // Endpoint explicito: los nombres son los que decidio ADR-T07, no los
-                // que deduzca la convencion de la biblioteca del namespace del tipo.
                 configurator.ReceiveEndpoint("lms.learning.student-enrolled", endpoint =>
                 {
                     endpoint.ConfigureConsumeTopology = false;
@@ -79,8 +76,6 @@ public static class DependencyInjection
                         binding.AutoDelete = false;
                     });
 
-                    // 1 intento + 3 reintentos. Un error de contrato es funcional y va
-                    // directo a la _error queue, sin reintentar.
                     endpoint.UseMessageRetry(retry =>
                     {
                         retry.Intervals(

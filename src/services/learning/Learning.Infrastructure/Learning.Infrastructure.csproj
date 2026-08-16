@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Learning.Integration.Tests" />
+    <InternalsVisibleTo Include="Learning.Component.Tests" />
   </ItemGroup>
 
 </Project>
