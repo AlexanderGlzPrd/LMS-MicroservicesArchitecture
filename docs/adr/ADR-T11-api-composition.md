@@ -19,8 +19,20 @@ composición de información entre microservicios.
 - **BFF dedicado**: componente mínimo, aislado y demostrable.
 
 ## Decisión
-Un **BFF de composición** expone la vista compuesta, consultando **en paralelo** a Learning y a
-Course Authoring, con timeout y Circuit Breaker por dependencia.
+Un **BFF de composición** expone la vista compuesta, con timeout y Circuit Breaker por dependencia.
+Learning se resuelve **primero**, porque es quien determina qué `CourseId` pertenecen al progreso del
+estudiante; una vez conocidos esos identificadores, las consultas de enriquecimiento **independientes**
+hacia Course Authoring se ejecutan **de forma concurrente y acotada**. El BFF compone después ambas
+fuentes.
+
+> **Aclaración de causalidad — 2026-08-17.** La redacción original de este párrafo decía «consultando
+> **en paralelo** a Learning y a Course Authoring». Se precisa que la concurrencia es la de los
+> enriquecimientos hacia Authoring, no un arranque simultáneo de las dos fuentes: el catálogo se
+> consulta por `CourseId` y esos identificadores solo los conoce Learning, de modo que ninguna
+> consulta a Authoring puede construirse antes de que Learning responda. La sección de Riesgos
+> residuales de este mismo ADR ya lo asumía al hablar de latencia *acumulada*.
+> **No modifica ninguna decisión:** el BFF dedicado, el timeout y el Circuit Breaker por dependencia,
+> el contrato de degradación y el reparto de campos entre las dos fuentes siguen siendo los mismos.
 
 **Contrato de degradación:**
 

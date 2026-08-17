@@ -20,10 +20,17 @@
 | **Learning → Course Authoring** | **conjunto actual de `LessonIds`, en toda escritura** | **503**, no se modifica el agregado ni se sella |
 | Certification → Course Authoring | título del curso (para congelarlo) | no se emite; reintento posterior |
 | Certification → Keycloak Admin API (vía ACL) | nombre del estudiante (para congelarlo) | no se emite; reintento posterior |
-| BFF → Learning + Course Authoring | vista compuesta (en paralelo) | degradación controlada (§5) |
+| BFF → Learning y, después, → Course Authoring | vista compuesta: Learning determina los `CourseId` del estudiante y, conocidos estos, los enriquecimientos independientes a Authoring se ejecutan de forma concurrente y acotada | degradación controlada (§6) |
 | paid-enrollment → Enrollment | `ConsultarAcceso` (pre-check antes de pagar) | reintentos; luego `Rechazada(PreCheckUnavailable)` |
 
 Todas con **timeout acotado, reintentos con backoff y Circuit Breaker**.
+
+> **Aclaración de causalidad — 2026-08-17.** La fila del BFF decía «vista compuesta (en paralelo)».
+> Se precisa que la concurrencia corresponde a los enriquecimientos hacia Authoring, no a un arranque
+> simultáneo de las dos fuentes: Authoring se consulta por `CourseId` y esos identificadores solo los
+> conoce Learning. Aclaración de redacción alineada con [ADR-T11](../adr/ADR-T11-api-composition.md);
+> **no cambia ninguna decisión** y el ADR sigue Aceptado. Se corrige de paso la referencia cruzada de
+> la fila, que apuntaba a §5 en vez de a §6.
 
 ## 3. Comunicación asíncrona — Integration Events (MVP)
 
