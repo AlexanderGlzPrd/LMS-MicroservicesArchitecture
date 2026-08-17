@@ -5,13 +5,14 @@ general los consulta en un catálogo; un estudiante puede matricularse gratuitam
 publicados y avanzar por ellos hasta finalizarlos. El objetivo es construir, de forma incremental,
 una plataforma de aprendizaje sobre una arquitectura de microservicios en .NET.
 
-Hoy el repositorio contiene tres microservicios ejecutables:
+Hoy el repositorio contiene cuatro microservicios ejecutables:
 
 | Servicio | Puerto | Qué hace |
 |---|---|---|
 | **Course Authoring** | `5195` | autoría de cursos, publicación y catálogo público |
 | **Enrollment** | `5196` | matrícula gratuita de un estudiante en un curso publicado |
 | **Learning** | `5197` | lecciones completadas de un estudiante y finalización del curso |
+| **Certification** | `5198` | emisión del certificado y su verificación pública |
 
 Cada uno tiene su propia base de datos y su propio usuario de PostgreSQL, sin acceso a las bases de
 los demás. Enrollment no lee la base de Course Authoring: le pregunta por HTTP si el curso está
@@ -26,6 +27,16 @@ un momento en aparecer, y que la matrícula se concede aunque el broker esté ap
 
 La finalización de un curso es irreversible: cuando el estudiante completa todas las lecciones
 publicadas, Learning la sella con su fecha y ninguna operación posterior la deshace ni la reescribe.
+
+Certificar funciona igual que empezar un curso: al sellar la finalización, Learning publica el hecho
+y Certification lo consume. El certificado no nace en ese instante, porque su nombre visible y el
+título del curso no viajan en el mensaje: Certification anota el trabajo pendiente y lo resuelve
+después, cuando puede preguntar por los dos datos. Si alguno no está disponible, el trabajo espera y
+se reintenta solo; nunca se emite un certificado a medias.
+
+Learning mantiene además dos modelos separados de los mismos datos: uno para escribir, que protege
+las reglas del progreso, y otro para leer, que responde las consultas ya resuelto e incluye el
+porcentaje de avance. El segundo se actualiza a partir del primero, así que va un momento por detrás.
 
 Un curso mantiene dos contenidos a la vez: el **contenido de trabajo**, que solo ve su instructor y
 cambia con cada edición, y el **contenido publicado**, que ve el público en el catálogo y solo cambia
@@ -102,8 +113,9 @@ PostgreSQL, en su primer arranque, ejecuta los scripts de `deploy/postgres/init/
 | `course_authoring` | `course_authoring_user` | `course_authoring_dev` |
 | `enrollment` | `enrollment_user` | `enrollment_dev` |
 | `learning` | `learning_user` | `learning_dev` |
+| `certification` | `certification_user` | `certification_dev` |
 
-Los tres scripts revocan el permiso de conexión que PostgreSQL concede por defecto a todos los roles,
+Los cuatro scripts revocan el permiso de conexión que PostgreSQL concede por defecto a todos los roles,
 así que cada usuario de servicio solo alcanza su propia base:
 
 ```bash
@@ -114,15 +126,15 @@ docker exec -e PGPASSWORD=enrollment_dev lms-postgres \
 
 > **`docker compose down -v` es necesario, no opcional**, si ya habías levantado el proyecto antes:
 > los scripts de inicialización solo se ejecutan con el directorio de datos vacío, y la creación de
-> la base `learning` y la revocación de permisos son parte de esa inicialización. Sin recrear el
-> volumen, el tercer servicio no tiene dónde conectarse. Recrear el volumen borra los datos locales
-> de las tres bases, así que después hay que volver a aplicar las tres migraciones.
+> la base `certification` y la revocación de permisos son parte de esa inicialización. Sin recrear el
+> volumen, el cuarto servicio no tiene dónde conectarse. Recrear el volumen borra los datos locales
+> de las cuatro bases, así que después hay que volver a aplicar las migraciones de los cuatro.
 >
 > Lo mismo vale para el broker: el usuario `lms` y la topología se importan con el volumen vacío. Si
 > cambias `deploy/rabbitmq/definitions.json`, `docker compose down -v && docker compose up -d` es lo
 > que vuelve a dejar el usuario y las colas en su sitio.
 
-### 2. Aplicar las tres migraciones
+### 2. Aplicar las migraciones de los cuatro servicios
 
 Paso obligatorio: las API no aplican migraciones al arrancar.
 
@@ -130,7 +142,11 @@ Paso obligatorio: las API no aplican migraciones al arrancar.
 dotnet ef database update --project src/services/course-authoring/CourseAuthoring.Infrastructure
 dotnet ef database update --project src/services/enrollment/Enrollments.Infrastructure
 dotnet ef database update --project src/services/learning/Learning.Infrastructure
+dotnet ef database update --project src/services/certification/Certification.Infrastructure
 ```
+
+Un comando por servicio, no por migración: Learning tiene varias y `database update` las aplica
+todas en orden hasta dejar la base al día.
 
 Cada fábrica de tiempo de diseño usa por defecto su cadena de conexión local. Para apuntar a otra
 base, define la variable correspondiente:
@@ -140,9 +156,10 @@ base, define la variable correspondiente:
 $env:COURSE_AUTHORING_CONNECTION = "Host=...;Database=...;Username=...;Password=..."
 $env:ENROLLMENT_CONNECTION       = "Host=...;Database=...;Username=...;Password=..."
 $env:LEARNING_CONNECTION         = "Host=...;Database=...;Username=...;Password=..."
+$env:CERTIFICATION_CONNECTION    = "Host=...;Database=...;Username=...;Password=..."
 ```
 
-### 3. Arrancar los tres servicios
+### 3. Arrancar los cuatro servicios
 
 Cada uno en su propia terminal:
 
@@ -150,14 +167,15 @@ Cada uno en su propia terminal:
 dotnet run --project src/services/course-authoring/CourseAuthoring.Api --launch-profile http
 dotnet run --project src/services/enrollment/Enrollments.Api --launch-profile http
 dotnet run --project src/services/learning/Learning.Api --launch-profile http
+dotnet run --project src/services/certification/Certification.Api --launch-profile http
 ```
 
-Escuchan en `http://localhost:5195`, `http://localhost:5196` y `http://localhost:5197`, con
-`ASPNETCORE_ENVIRONMENT=Development`.
+Escuchan en `http://localhost:5195`, `http://localhost:5196`, `http://localhost:5197` y
+`http://localhost:5198`, con `ASPNETCORE_ENVIRONMENT=Development`.
 
-Enrollment y Learning necesitan saber dónde está Course Authoring. Lo leen de
+Enrollment, Learning y Certification necesitan saber dónde está Course Authoring. Lo leen de
 `Services:CourseAuthoring:BaseUrl`, que en Development apunta a `http://localhost:5195`, y **ninguno
-de los dos arranca si falta**. Puedes ajustar la llamada sin recompilar:
+de los tres arranca si falta**. Puedes ajustar la llamada sin recompilar:
 
 | Ajuste | Por defecto | Para qué |
 |---|---|---|
@@ -165,37 +183,53 @@ de los dos arranca si falta**. Puedes ajustar la llamada sin recompilar:
 | `Services:CourseAuthoring:TimeoutSeconds` | `3` | cuánto se espera la respuesta |
 | `Services:CourseAuthoring:RetryAfterSeconds` | `5` | valor de la cabecera `Retry-After` del `503` |
 
-Enrollment y Learning también necesitan saber dónde está el broker. Lo leen de
+Enrollment, Learning y Certification también necesitan saber dónde está el broker. Lo leen de
 `Messaging:RabbitMq`, que en Development apunta a `localhost:5672` con el usuario `lms`, y
-**ninguno de los dos arranca si falta el host**. Fuera de Development, la contraseña se toma del
+**ninguno de los tres arranca si falta el host**. Fuera de Development, la contraseña se toma del
 entorno (`Messaging__RabbitMq__Password`); nunca está en el código.
 
 | Ajuste | Por defecto | Para qué |
 |---|---|---|
 | `Messaging:RabbitMq:Host` | `localhost` | dónde está el broker |
 | `Messaging:RabbitMq:Port` | `5672` | puerto AMQP |
-| `Messaging:Outbox:PollingIntervalSeconds` | `5` | cada cuánto revisa Enrollment si tiene mensajes por enviar |
+| `Messaging:Outbox:PollingIntervalSeconds` | `5` | cada cuánto revisan Enrollment y Learning si tienen mensajes por enviar |
 | `Messaging:Outbox:BatchSize` | `20` | cuántos envía como mucho en cada vuelta |
 | `Messaging:Outbox:PublishTimeoutSeconds` | `5` | cuánto espera como mucho cada envío |
 
+Learning y Certification tienen además su propio trabajo de fondo:
+
+| Ajuste | Por defecto | Para qué |
+|---|---|---|
+| `Projection:PollingIntervalSeconds` | `5` | cada cuánto actualiza Learning su modelo de lectura |
+| `Projection:BatchSize` | `50` | cuántos cambios aplica como mucho en cada vuelta |
+| `Certification:Issuer` | `LMS` | quién firma el certificado; se copia a la fila al emitirlo |
+| `Certification:PollingIntervalSeconds` | `5` | cada cuánto revisa Certification si tiene certificados por emitir |
+| `Certification:BatchSize` | `20` | cuántos intenta emitir como mucho en cada vuelta |
+
+Certification necesita también el nombre visible del estudiante, que hoy se toma de
+`Certification:StudentDirectory:Students`, un mapa de identificador a nombre. En Development trae
+sembrado el estudiante del recorrido de más abajo. Sin entrada para un estudiante, su certificado no
+se emite: nunca se inventa un nombre.
+
 ### 4. Documentación y estado
 
-| Recurso | Course Authoring | Enrollment | Learning | Disponible en |
-|---|---|---|---|---|
-| Documentación interactiva (Scalar) | `:5195/scalar/v1` | `:5196/scalar/v1` | `:5197/scalar/v1` | solo Development |
-| Documento OpenAPI | `:5195/openapi/v1.json` | `:5196/openapi/v1.json` | `:5197/openapi/v1.json` | solo Development |
-| Estado del servicio | `:5195/health` | `:5196/health` | `:5197/health` | siempre |
+| Recurso | Course Authoring | Enrollment | Learning | Certification | Disponible en |
+|---|---|---|---|---|---|
+| Documentación interactiva (Scalar) | `:5195/scalar/v1` | `:5196/scalar/v1` | `:5197/scalar/v1` | `:5198/scalar/v1` | solo Development |
+| Documento OpenAPI | `:5195/openapi/v1.json` | `:5196/openapi/v1.json` | `:5197/openapi/v1.json` | `:5198/openapi/v1.json` | solo Development |
+| Estado del servicio | `:5195/health` | `:5196/health` | `:5197/health` | `:5198/health` | siempre |
 
 ```bash
 curl http://localhost:5195/health          # Healthy
 curl http://localhost:5196/health          # Healthy
 curl http://localhost:5197/health          # Healthy
+curl http://localhost:5198/health          # Healthy
 ```
 
 `/health` comprueba únicamente la conectividad de cada servicio con su propia base, no el estado del
 esquema: si te saltas las migraciones, responde `Healthy` y el fallo aparece en la primera escritura.
-El `/health` de Enrollment y el de Learning tampoco cambian porque Course Authoring o RabbitMQ estén
-caídos: la salud de una dependencia no es la salud propia.
+El `/health` de Enrollment, Learning y Certification tampoco cambia porque Course Authoring o
+RabbitMQ estén caídos: la salud de una dependencia no es la salud propia.
 
 ### 5. Detener el entorno
 
@@ -269,14 +303,19 @@ ninguna de estas rutas lo crea. Mientras el mensaje no haya llegado, todas respo
 | `GET /api/v1/me/course-progress/{courseId}` | el progreso del estudiante en ese curso |
 
 Las cuatro devuelven la misma forma de respuesta, con el estado, la fecha de inicio, la de
-finalización —`null` mientras el curso siga en curso— y los identificadores de las lecciones ya
-completadas:
+finalización —`null` mientras el curso siga en curso—, los identificadores de las lecciones ya
+completadas, cuántas son, cuántas tiene el curso y el porcentaje de avance:
 
 ```json
 { "studentId": "...", "courseId": "...", "status": "InProgress",
   "startedAt": "2026-08-14T10:00:00+00:00", "completedAt": null,
-  "completedLessonIds": ["..."] }
+  "completedLessonIds": ["..."],
+  "completedLessonCount": 1, "totalLessonCount": 3, "percentage": 33.33 }
 ```
+
+`totalLessonCount` y `percentage` son `null` mientras nadie haya marcado todavía ninguna lección: en
+ese momento no se sabe cuántas tiene el curso, y `0` afirmaría algo distinto y falso. Un curso
+finalizado devuelve siempre `percentage: 100`.
 
 Códigos de estado de las dos escrituras:
 
@@ -300,7 +339,40 @@ Un `courseId` que no es un GUID devuelve `404` en vez de `400`: la ruta exige un
 ninguna ruta coincide y no hay nada que validar. Uno todo ceros sí coincide y se rechaza con `400`
 sin llegar a preguntar a Course Authoring.
 
-Flujo completo — publicar un curso, matricularse, avanzar hasta finalizarlo y repetir sin efecto:
+### Certification
+
+Un certificado nace de una finalización sellada y no se puede pedir: aparece solo cuando Learning
+comunica el hecho y Certification consigue resolver el nombre del estudiante y el título del curso.
+
+| Método y ruta | Acceso | Qué hace |
+|---|---|---|
+| `GET /api/v1/certificates/{certificateId}` | **público, sin cabecera** | verifica un certificado |
+| `GET /api/v1/me/certificates` | propietario | los certificados del estudiante |
+| `GET /api/v1/me/certificates/{certificateId}` | propietario | el detalle de uno propio |
+
+La verificación pública devuelve solo lo mínimo para comprobar el logro ante un tercero: quién lo
+obtuvo, de qué curso, cuándo lo terminó y quién lo firma.
+
+```json
+{ "certificateId": "...", "valid": true,
+  "studentName": "Ada Lovelace", "courseTitle": "Microservicios con .NET 10",
+  "completedAt": "2026-08-17T07:31:55+00:00", "issuer": "LMS" }
+```
+
+No incluye el identificador del estudiante ni el del curso ni la fecha de emisión: quien verifica no
+necesita nada de eso. Un `certificateId` que no existe devuelve `404`, no un `200` con `valid: false`:
+sobre un identificador inexistente no se puede afirmar nada.
+
+Las dos rutas del propietario exigen `X-Student-Id` y devuelven la vista completa, con `studentId`,
+`courseId` e `issuedAt`. Pedir el detalle de un certificado de otro estudiante devuelve `404`, no
+`403`: no se confirma siquiera que exista.
+
+`studentName` y `courseTitle` quedan congelados en el momento de emitir. Si el instructor renombra el
+curso después, el certificado sigue diciendo lo que decía el día que se emitió. `completedAt` es la
+fecha de la finalización, no la de emisión: son distintas y ambas aparecen en la vista del
+propietario.
+
+Flujo completo — publicar un curso, matricularse, avanzar hasta finalizarlo y obtener el certificado:
 
 ```bash
 INSTRUCTOR="11111111-1111-1111-1111-111111111111"
@@ -370,10 +442,31 @@ curl -i -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/complete
   -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
   -d "{\"lessonId\":\"$LESSON2\"}"
 
-# 10. Consultar el progreso propio, entero y filtrado por estado
+# 10. Consultar el progreso propio, entero y filtrado por estado.
+#     Devuelven percentage 100 y la lista de lecciones completadas
 curl -s http://localhost:5197/api/v1/me/course-progress -H "X-Student-Id: $STUDENT"
 curl -s "http://localhost:5197/api/v1/me/course-progress?status=Completed" -H "X-Student-Id: $STUDENT"
 curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+
+# 11. Esperar unos segundos y pedir los certificados propios. Al principio la lista
+#     esta vacia: el certificado tarda un momento en emitirse
+curl -s http://localhost:5198/api/v1/me/certificates -H "X-Student-Id: $STUDENT"
+# [{"certificateId":"...","courseId":"...","courseTitle":"Microservicios con .NET 10",
+#   "completedAt":"...","issuedAt":"..."}]
+
+CERT="<certificateId devuelto>"
+
+# 12. Verificarlo sin ninguna cabecera, como lo haria un tercero
+curl -s http://localhost:5198/api/v1/certificates/$CERT
+# {"certificateId":"...","valid":true,"studentName":"...","courseTitle":"...",
+#  "completedAt":"...","issuer":"LMS"}
+
+# 13. Ver el detalle propio, con studentId, courseId e issuedAt
+curl -s http://localhost:5198/api/v1/me/certificates/$CERT -H "X-Student-Id: $STUDENT"
+
+# 14. Pedir ese mismo certificado como otro estudiante. Devuelve 404, no 403
+curl -i http://localhost:5198/api/v1/me/certificates/$CERT \
+  -H "X-Student-Id: 99999999-9999-4999-8999-999999999999"
 ```
 
 Caso degradado — con Course Authoring apagado, ni se concede una matrícula nueva ni se registra
@@ -427,6 +520,69 @@ curl -i -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/complete
 ```
 
 No hay que hacer nada para que se cierre la ventana: se cierra sola. No se promete cuánto dura.
+
+### Las dos consultas de progreso van un momento por detrás
+
+Las dos rutas `GET` de Learning no leen el mismo sitio donde se escribe: leen una vista que se
+actualiza a partir de las escrituras, unos segundos después. Por eso puede pasar esto:
+
+```bash
+# Marcar una leccion. El POST responde ya con el estado nuevo
+curl -s -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/completed-lessons \
+  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -d "{\"lessonId\":\"$LESSON1\"}"
+# {"status":"InProgress","completedLessonCount":1,"totalLessonCount":3,"percentage":33.33, ...}
+
+# Consultarlo enseguida: todavia puede devolver el estado anterior
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+# {"completedLessonCount":0,"totalLessonCount":null,"percentage":null, ...}
+
+# Repetir unos segundos despues: ya coincide
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+# {"completedLessonCount":1,"totalLessonCount":3,"percentage":33.33, ...}
+```
+
+No es un fallo y no hay nada que reintentar: la respuesta del `POST` siempre viene del dato recién
+escrito, y las consultas se ponen al día solas. Un progreso que acaba de nacer tampoco aparece de
+inmediato en el `GET`, por el mismo motivo.
+
+### Un curso finalizado muestra 100 % aunque después crezca
+
+Si el instructor añade lecciones a un curso ya publicado y lo republica, un estudiante que ya lo
+había finalizado puede completar las nuevas. El recuento sube y el total también, pero la
+finalización no se toca y el porcentaje se queda en `100`:
+
+```bash
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+# {"status":"Completed","completedAt":"2026-08-17T07:31:55+00:00",
+#  "completedLessonCount":4,"totalLessonCount":5,"percentage":100}
+```
+
+`4` de `5` no es `80 %` aquí: el estudiante terminó el curso que existía cuando lo terminó, y el
+contenido añadido después no le quita el logro.
+
+### El certificado puede tardar, y a veces espera a propósito
+
+Certification acepta la finalización en cuanto llega, pero para emitir necesita dos datos que no
+viajan en el mensaje: el título del curso, que pide a Course Authoring, y el nombre visible del
+estudiante. Mientras falte cualquiera de los dos, el trabajo queda anotado y se reintenta solo.
+
+```bash
+# Con Course Authoring apagado, finalizar un curso y pedir los certificados propios
+curl -s http://localhost:5198/api/v1/me/certificates -H "X-Student-Id: $STUDENT"
+# []      <- el trabajo esta anotado, pero todavia no hay nada que emitir
+
+# Arrancar Course Authoring y esperar unos segundos
+curl -s http://localhost:5198/api/v1/me/certificates -H "X-Student-Id: $STUDENT"
+# [{"certificateId":"...","courseTitle":"Microservicios con .NET 10", ...}]
+```
+
+No hace falta repetir la finalización ni tocar nada: el certificado aparece solo cuando las dos
+fuentes vuelven. Lo que **no** ocurre nunca es que se emita a medias, con el título vacío o con un
+nombre inventado; antes de eso, espera indefinidamente.
+
+Un estudiante sin nombre configurado se comporta igual: la finalización queda registrada y el
+certificado espera hasta que ese nombre exista.
 
 ### Con RabbitMQ apagado
 

@@ -1,13 +1,16 @@
 # Trazabilidad académica
 
-- **Fecha:** 2026-07-16
-- **Estado global:** Incremento 1 (documentación). **No existe implementación.**
+- **Fecha:** 2026-08-17
+- **Estado global:** cuatro servicios de dominio ejecutables sobre PostgreSQL y RabbitMQ, con el
+  proceso completo `matricular → progresar → finalizar → certificar` en funcionamiento.
 
 ## Estados permitidos en esta fase
 
-`Diseñado` · `Documentado` · `Pendiente de implementación` · `Pendiente de prueba` · `Pendiente de evidencia`
+`Diseñado` · `Documentado` · `Implementado` · `Pendiente de implementación` · `Pendiente de prueba` · `Pendiente de evidencia`
 
-> **No se marca** `Implementado`, `Probado` ni `Demostrable`: no hay código todavía.
+> `Implementado` se marca solo sobre capacidad ejecutable y verificada a mano contra el entorno
+> local. `Probado` y `Demostrable` siguen sin marcarse: la evidencia automatizada se concentra en
+> el incremento final de validación.
 
 ---
 
@@ -16,10 +19,10 @@
 | # | Criterio | Decisión | ADR | Evidencia prevista | Incr. | Estado |
 |---:|---|---|---|---|---|---|
 | 1 | Decompose by Business Capability | 4 servicios de dominio = 4 Bounded Contexts | T01 | diagrama general + C4 Container | 1 | Documentado |
-| 2 | Domain Modeling / DDD | agregados, VO, invariantes, eventos de dominio | T03 | bounded-contexts.md + código de dominio | 1–6 | Documentado · Pendiente de implementación |
+| 2 | Domain Modeling / DDD | agregados, VO, invariantes, eventos de dominio | T03 | bounded-contexts.md + código de dominio | 1–6 | **Implementado** en los cuatro servicios: `Curso`, `Matricula`, `ProgresoDelCurso` y `Certificado`, con eventos de dominio internos en Learning y Certification |
 | 3 | Database per Service | una base lógica por servicio, sin permisos cruzados | T04, T05 | technical-architecture.md + Compose/K8s | 1 | Documentado · Pendiente de implementación |
 | 4 | Repository Pattern | un repositorio por Aggregate Root (puerto/adaptador) | T03 | código + prueba de integración | 2 | Diseñado · Pendiente de implementación |
-| 5 | REST API Design | rutas, verbos, códigos, DTO, validaciones | T06 | application-flows.md + Swagger | 2–6 | Diseñado · Pendiente de implementación |
+| 5 | REST API Design | rutas, verbos, códigos, DTO, validaciones | T06 | application-flows.md + Swagger | 2–6 | **Implementado** en los cuatro servicios, incluida la verificación pública de certificados |
 | 6 | API Composition | BFF con llamadas en paralelo | T11 | endpoint + escenario degradado **200 `isPartial`** | 9 | Diseñado · Pendiente de implementación |
 | 7 | Resiliencia / Circuit Breaker | timeout, retry, CB, DLQ, fail-safe | T19 | captura de CB abierto + 503 | 13 | Diseñado · Pendiente de implementación |
 | 8 | API Gateway | YARP como entrada única | T14 | configuración de rutas | 11 | Diseñado · Pendiente de implementación |
@@ -39,9 +42,9 @@
 | 1 | Proceso de negocio distribuido | matricular → progresar → finalizar → certificar | T06 | diagramas de secuencia | 1 | Documentado |
 | 2 | APIs REST por microservicio | endpoints alineados al negocio | T06 | Swagger | 2–6 | Diseñado |
 | 3 | Arquitectura de microservicios | 6 servicios desacoplados, capas separadas | T01, T03 | C4 Container | 1 | Documentado |
-| 4 | Event-Driven Architecture | RabbitMQ + MassTransit; **2 Integration Events con consumidor real** | T07 | diagramas de flujo + trazas | 5, 6 | Diseñado · Pendiente de implementación |
+| 4 | Event-Driven Architecture | RabbitMQ + MassTransit; **2 Integration Events con consumidor real** | T07 | diagramas de flujo + trazas | 5, 6 | **Implementado**: `StudentEnrolled` y `CourseCompleted`, dos productores con Outbox y dos consumidores idempotentes con Inbox |
 | 5 | Contratos de Integration Events | versión en el tipo, cambios solo aditivos | T20 | `*.Contracts` + pruebas de contrato | 5 | Diseñado |
-| 6 | **CQRS** | modelo de escritura y modelo de lectura en Learning | T10 | dos modelos + diagrama de componentes | 7 | Diseñado · Pendiente de implementación |
+| 6 | **CQRS** | modelo de escritura y modelo de lectura en Learning | T10 | dos modelos + diagrama de componentes | ~~7~~ → **6** | **Implementado**: `course_progress` frente a `course_progress_view`, actualizada por eventos de dominio internos con consistencia eventual. Planificado para el incremento 7, se incorpora en el 6 |
 | 7 | **Saga** | Compra de Acceso orquestada (**extensión académica**) | T13, T23 | diagrama de estados + reembolso ejecutado | 10 | Diseñado · Pendiente de implementación |
 | 8 | Estados y transiciones | 17 estados documentados | T13 | `paid-enrollment-saga.md` | 1 | **Documentado** |
 | 9 | Compensaciones | anulación antes de captura · reembolso después | T13 | escenario compensado | 10 | Diseñado |
@@ -74,8 +77,8 @@
 
 ---
 
-## Criterios sin evidencia posible en el Incremento 1
+## Criterios todavia sin evidencia
 
-Todos los que requieren ejecución: escalado, recuperación ante fallos, trazas reales, dashboards,
-colección Postman ejecutada, DLQ con mensaje real, compensación de Saga ejecutada. Quedan en
+Escalado, recuperación ante fallos en Kubernetes, trazas distribuidas, dashboards, colección
+Postman ejecutada, DLQ propia con mensaje real y compensación de Saga ejecutada. Quedan en
 `Pendiente de implementación` / `Pendiente de prueba` / `Pendiente de evidencia`.
