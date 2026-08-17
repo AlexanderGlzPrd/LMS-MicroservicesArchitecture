@@ -1,6 +1,7 @@
 using System.Net;
 using Enrollments.Application.Abstractions;
 using Enrollments.Domain.Enrollments;
+using Polly;
 namespace Enrollments.Infrastructure.Acl;
 internal sealed class CourseAuthoringCatalogClient(HttpClient httpClient) : ICourseAvailability
 {
@@ -23,6 +24,10 @@ internal sealed class CourseAuthoringCatalogClient(HttpClient httpClient) : ICou
 
                 _ => CourseAvailability.Unknown,
             };
+        }
+        catch (ExecutionRejectedException)
+        {
+            return CourseAvailability.Unknown;
         }
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
