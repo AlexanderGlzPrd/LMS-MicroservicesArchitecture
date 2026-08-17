@@ -1,5 +1,5 @@
 namespace BffComposition.Api.Clients.CourseAuthoring;
-internal enum CourseEnrichmentStatus
+public enum CourseEnrichmentStatus
 {
     Resolved,
     NotInCatalog,

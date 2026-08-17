@@ -1,5 +1,5 @@
 namespace BffComposition.Api.Clients.Learning;
-internal sealed class StudentProgressLookup
+public sealed class StudentProgressLookup
 {
     private StudentProgressLookup(
         StudentProgressStatus status,
@@ -20,7 +20,7 @@ internal sealed class StudentProgressLookup
         new(StudentProgressStatus.Available, courses);
 }
 
-internal sealed record StudentCourseProgress(
+public sealed record StudentCourseProgress(
     Guid CourseId,
     string Status,
     DateTimeOffset StartedAt,

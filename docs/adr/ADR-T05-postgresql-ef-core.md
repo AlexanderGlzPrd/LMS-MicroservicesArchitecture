@@ -40,4 +40,4 @@ antes de considerar el sistema operable a largo plazo.
 Curso 1: *Database per Service*, Repository Pattern. Curso 2: idempotencia y consistencia eventual.
 
 ## Decisiones relacionadas
-[T04](./ADR-T04-database-per-service.md) · [T08](./ADR-T08-transactional-outbox.md) · [T09](./ADR-T09-inbox-deduplication.md)
+[T04](./ADR-T04-base-de-datos-por-servicio.md) · [T08](./ADR-T08-outbox-transaccional.md) · [T09](./ADR-T09-inbox-deduplicacion.md)

@@ -3,6 +3,7 @@ using BffComposition.Api.Actor;
 using BffComposition.Api.Clients;
 using BffComposition.Api.Clients.CourseAuthoring;
 using BffComposition.Api.Clients.Learning;
+using BffComposition.Api.Composition;
 using BffComposition.Api.Errors;
 using Scalar.AspNetCore;
 
@@ -34,6 +35,8 @@ builder.Services.Configure<CourseAuthoringOptions>(
 builder.Services.AddResilientClient<LearningProgressClient, LearningOptions>("learning");
 builder.Services.AddResilientClient<CourseAuthoringCourseClient, CourseAuthoringOptions>(
     "course-authoring");
+
+builder.Services.AddScoped<CoursesInProgressComposer>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentActor, HttpCurrentActor>();

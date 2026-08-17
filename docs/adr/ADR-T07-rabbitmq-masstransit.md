@@ -45,4 +45,4 @@ evidenciar comprensión y no solo uso.
 Curso 2: EDA, broker, productores y consumidores, contratos de Integration Events, resiliencia.
 
 ## Decisiones relacionadas
-[T06](./ADR-T06-communication.md) · [T08](./ADR-T08-transactional-outbox.md) · [T09](./ADR-T09-inbox-deduplication.md) · [T13](./ADR-T13-paid-enrollment-saga.md)
+[T06](./ADR-T06-comunicacion.md) · [T08](./ADR-T08-outbox-transaccional.md) · [T09](./ADR-T09-inbox-deduplicacion.md) · [T13](./ADR-T13-saga-matricula-de-pago.md)

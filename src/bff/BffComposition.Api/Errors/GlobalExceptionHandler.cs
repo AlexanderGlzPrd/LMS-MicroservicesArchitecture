@@ -1,9 +1,13 @@
+using System.Globalization;
 using BffComposition.Api.Actor;
+using BffComposition.Api.Clients.Learning;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.Extensions.Options;
 namespace BffComposition.Api.Errors;
 
 internal sealed class GlobalExceptionHandler(
     IProblemDetailsService problemDetailsService,
+    IOptions<LearningOptions> learningOptions,
     ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
@@ -11,11 +15,31 @@ internal sealed class GlobalExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
+        //El llamante abandono la peticion: no es fallo de nadie y no tiene destinatario.
+        //No se escribe ProblemDetails, no se emite 503 ni 500
+        if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
+        {
+            logger.LogInformation("Peticion cancelada por el llamante en {Method} {Path}",
+                httpContext.Request.Method, httpContext.Request.Path);
+
+            return true;
+        }
+
         var (statusCode, title, detail) = exception switch
         {
             MissingStudentHeaderException => (
                 StatusCodes.Status400BadRequest,
                 "Estudiante no identificado",
+                exception.Message),
+
+            InvalidProgressStatusException => (
+                StatusCodes.Status400BadRequest,
+                "Filtro de estado no admitido",
+                exception.Message),
+
+            LearningUnavailableException => (
+                StatusCodes.Status503ServiceUnavailable,
+                "Dependencia esencial no disponible",
                 exception.Message),
 
             _ => (
@@ -36,6 +60,12 @@ internal sealed class GlobalExceptionHandler(
         }
 
         httpContext.Response.StatusCode = statusCode;
+
+        if (statusCode == StatusCodes.Status503ServiceUnavailable)
+        {
+            httpContext.Response.Headers.RetryAfter = learningOptions.Value
+                .RetryAfterSeconds.ToString(CultureInfo.InvariantCulture);
+        }
 
         return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {

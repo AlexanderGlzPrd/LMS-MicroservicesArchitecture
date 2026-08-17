@@ -1,5 +1,5 @@
 namespace BffComposition.Api.Clients.Learning;
-internal enum StudentProgressStatus
+public enum StudentProgressStatus
 {
     Available,
     Unavailable,

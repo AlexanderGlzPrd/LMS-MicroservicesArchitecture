@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Polly;
 namespace BffComposition.Api.Clients.CourseAuthoring;
-internal sealed class CourseAuthoringCourseClient(HttpClient httpClient)
+public sealed class CourseAuthoringCourseClient(HttpClient httpClient)
 {
     public async Task<CourseEnrichment> GetCourseAsync(
         Guid courseId,

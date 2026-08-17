@@ -35,10 +35,10 @@ pruebas) queda en un solo lugar verificable.
 
 ## Riesgos residuales
 Tentación de referenciar directamente código ajeno; se mitiga con las reglas de
-[T20](./ADR-T20-contract-versioning.md) y [T22](./ADR-T22-technical-building-blocks.md).
+[T20](./ADR-T20-versionado-de-contratos.md) y [T22](./ADR-T22-bloques-tecnicos.md).
 
 ## Relación con criterios académicos
 Curso 1, 2 y 3: estructura del repositorio, documentación, historial de commits.
 
 ## Decisiones relacionadas
-[T01](./ADR-T01-physical-microservices.md) · [T20](./ADR-T20-contract-versioning.md) · [T22](./ADR-T22-technical-building-blocks.md)
+[T01](./ADR-T01-microservicios-fisicos.md) · [T20](./ADR-T20-versionado-de-contratos.md) · [T22](./ADR-T22-bloques-tecnicos.md)

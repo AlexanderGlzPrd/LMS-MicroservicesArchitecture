@@ -44,4 +44,4 @@ comprobaciones de salud y dependencias condicionadas.
 Curso 1: Dockerfile por microservicio, Docker Compose, ejecución del flujo completo. Curso 3: Docker.
 
 ## Decisiones relacionadas
-[T04](./ADR-T04-database-per-service.md) · [T18](./ADR-T18-kubernetes.md) · [T21](./ADR-T21-testing-strategy.md)
+[T04](./ADR-T04-base-de-datos-por-servicio.md) · [T18](./ADR-T18-kubernetes.md) · [T21](./ADR-T21-estrategia-de-pruebas.md)

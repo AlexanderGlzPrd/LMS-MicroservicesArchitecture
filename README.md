@@ -5,20 +5,23 @@ general los consulta en un catálogo; un estudiante puede matricularse gratuitam
 publicados y avanzar por ellos hasta finalizarlos. El objetivo es construir, de forma incremental,
 una plataforma de aprendizaje sobre una arquitectura de microservicios en .NET.
 
-Hoy el repositorio contiene cuatro microservicios ejecutables:
+Hoy el repositorio contiene cuatro microservicios ejecutables y un BFF de composición:
 
-| Servicio | Puerto | Qué hace |
+| Unidad | Puerto | Qué hace |
 |---|---|---|
 | **Course Authoring** | `5195` | autoría de cursos, publicación y catálogo público |
 | **Enrollment** | `5196` | matrícula gratuita de un estudiante en un curso publicado |
 | **Learning** | `5197` | lecciones completadas de un estudiante y finalización del curso |
 | **Certification** | `5198` | emisión del certificado y su verificación pública |
+| **BFF de composición** | `5199` | una sola respuesta con el progreso del estudiante y los datos del catálogo |
 
-Cada uno tiene su propia base de datos y su propio usuario de PostgreSQL, sin acceso a las bases de
-los demás. Enrollment no lee la base de Course Authoring: le pregunta por HTTP si el curso está
-publicado antes de conceder una matrícula, y si no obtiene respuesta no matricula a nadie. Learning
-hace lo mismo con el contenido: antes de registrar cualquier lección pregunta a Course Authoring
-cuáles son las lecciones publicadas del curso, y si no puede saberlo no escribe nada.
+Cada uno de los cuatro servicios tiene su propia base de datos y su propio usuario de PostgreSQL,
+sin acceso a las bases de los demás. Enrollment no lee la base de Course Authoring: le pregunta por
+HTTP si el curso está publicado antes de conceder una matrícula, y si no obtiene respuesta no
+matricula a nadie. Learning hace lo mismo con el contenido: antes de registrar cualquier lección
+pregunta a Course Authoring cuáles son las lecciones publicadas del curso, y si no puede saberlo no
+escribe nada. El BFF no tiene base de datos ni la necesita: no persiste nada y solo consume las API
+públicas de Learning y Course Authoring.
 
 Matricularse y empezar un curso están conectados por un mensaje, no por una llamada: cuando
 Enrollment concede una matrícula, publica el hecho en RabbitMQ y Learning lo consume para crear el
@@ -159,7 +162,7 @@ $env:LEARNING_CONNECTION         = "Host=...;Database=...;Username=...;Password=
 $env:CERTIFICATION_CONNECTION    = "Host=...;Database=...;Username=...;Password=..."
 ```
 
-### 3. Arrancar los cuatro servicios
+### 3. Arrancar los cuatro servicios y el BFF
 
 Cada uno en su propia terminal:
 
@@ -168,10 +171,12 @@ dotnet run --project src/services/course-authoring/CourseAuthoring.Api --launch-
 dotnet run --project src/services/enrollment/Enrollments.Api --launch-profile http
 dotnet run --project src/services/learning/Learning.Api --launch-profile http
 dotnet run --project src/services/certification/Certification.Api --launch-profile http
+dotnet run --project src/bff/BffComposition.Api --launch-profile http
 ```
 
-Escuchan en `http://localhost:5195`, `http://localhost:5196`, `http://localhost:5197` y
-`http://localhost:5198`, con `ASPNETCORE_ENVIRONMENT=Development`.
+Escuchan en `http://localhost:5195`, `http://localhost:5196`, `http://localhost:5197`,
+`http://localhost:5198` y `http://localhost:5199`, con `ASPNETCORE_ENVIRONMENT=Development`. El BFF
+solo hace falta para la vista compuesta; los cuatro servicios funcionan sin él.
 
 Enrollment, Learning y Certification necesitan saber dónde está Course Authoring. Lo leen de
 `Services:CourseAuthoring:BaseUrl`, que en Development apunta a `http://localhost:5195`, y **ninguno
@@ -180,8 +185,18 @@ de los tres arranca si falta**. Puedes ajustar la llamada sin recompilar:
 | Ajuste | Por defecto | Para qué |
 |---|---|---|
 | `Services:CourseAuthoring:BaseUrl` | `http://localhost:5195` | destino de la consulta al catálogo |
-| `Services:CourseAuthoring:TimeoutSeconds` | `3` | cuánto se espera la respuesta |
+| `Services:CourseAuthoring:TotalTimeoutSeconds` | `3` (Certification, `5`) | presupuesto de la operación completa, reintentos y esperas incluidos |
+| `Services:CourseAuthoring:RetryAttempts` | `2` | reintentos, no intentos: 2 reintentos son 3 intentos como mucho |
+| `Services:CourseAuthoring:RetryBaseDelayMilliseconds` | `200` | base del backoff exponencial sin jitter: 200 ms y 400 ms |
+| `Services:CourseAuthoring:CircuitBreakerFailureRatio` | `0.5` | proporción de fallos que abre el circuito |
+| `Services:CourseAuthoring:CircuitBreakerSamplingSeconds` | `30` | ventana en la que se mide esa proporción |
+| `Services:CourseAuthoring:CircuitBreakerMinimumThroughput` | `3` | resultados mínimos en la ventana antes de poder abrir |
+| `Services:CourseAuthoring:CircuitBreakerBreakSeconds` | `15` | cuánto permanece abierto antes de probar en *half-open* |
 | `Services:CourseAuthoring:RetryAfterSeconds` | `5` | valor de la cabecera `Retry-After` del `503` |
+
+`TotalTimeoutSeconds` sustituye al antiguo `TimeoutSeconds`, que ya no se usa: el límite temporal es
+ahora del pipeline entero, no de cada intento, y `HttpClient.Timeout` queda en infinito para que no
+haya dos relojes compitiendo.
 
 Enrollment, Learning y Certification también necesitan saber dónde está el broker. Lo leen de
 `Messaging:RabbitMq`, que en Development apunta a `localhost:5672` con el usuario `lms`, y
@@ -213,23 +228,25 @@ se emite: nunca se inventa un nombre.
 
 ### 4. Documentación y estado
 
-| Recurso | Course Authoring | Enrollment | Learning | Certification | Disponible en |
-|---|---|---|---|---|---|
-| Documentación interactiva (Scalar) | `:5195/scalar/v1` | `:5196/scalar/v1` | `:5197/scalar/v1` | `:5198/scalar/v1` | solo Development |
-| Documento OpenAPI | `:5195/openapi/v1.json` | `:5196/openapi/v1.json` | `:5197/openapi/v1.json` | `:5198/openapi/v1.json` | solo Development |
-| Estado del servicio | `:5195/health` | `:5196/health` | `:5197/health` | `:5198/health` | siempre |
+| Recurso | Course Authoring | Enrollment | Learning | Certification | BFF | Disponible en |
+|---|---|---|---|---|---|---|
+| Documentación interactiva (Scalar) | `:5195/scalar/v1` | `:5196/scalar/v1` | `:5197/scalar/v1` | `:5198/scalar/v1` | `:5199/scalar/v1` | solo Development |
+| Documento OpenAPI | `:5195/openapi/v1.json` | `:5196/openapi/v1.json` | `:5197/openapi/v1.json` | `:5198/openapi/v1.json` | `:5199/openapi/v1.json` | solo Development |
+| Estado del servicio | `:5195/health` | `:5196/health` | `:5197/health` | `:5198/health` | `:5199/health` | siempre |
 
 ```bash
 curl http://localhost:5195/health          # Healthy
 curl http://localhost:5196/health          # Healthy
 curl http://localhost:5197/health          # Healthy
 curl http://localhost:5198/health          # Healthy
+curl http://localhost:5199/health          # Healthy
 ```
 
 `/health` comprueba únicamente la conectividad de cada servicio con su propia base, no el estado del
 esquema: si te saltas las migraciones, responde `Healthy` y el fallo aparece en la primera escritura.
 El `/health` de Enrollment, Learning y Certification tampoco cambia porque Course Authoring o
-RabbitMQ estén caídos: la salud de una dependencia no es la salud propia.
+RabbitMQ estén caídos: la salud de una dependencia no es la salud propia. El del BFF no tiene nada
+que comprobar —no tiene base ni broker— y responde `Healthy` incluso con sus dos fuentes apagadas.
 
 ### 5. Detener el entorno
 
@@ -654,13 +671,130 @@ curl -s http://localhost:5197/api/v1/me/course-progress/$OTRO_COURSE -H "X-Stude
 > nada más: los dos servicios lo usan, y puede configurar, escribir y leer cualquier cosa. Un usuario
 > por servicio con permisos mínimos es trabajo pendiente.
 
-> **Las llamadas a Course Authoring solo tienen timeout.** Ni Enrollment ni Learning reintentan ni
-> abren cortacircuitos: si Course Authoring tarda más de `TimeoutSeconds` o falla, la petición se
-> resuelve con un `503` inmediato y el cliente decide si vuelve a intentarlo.
+> **Las llamadas a Course Authoring llevan timeout, reintento y cortacircuitos.** Enrollment,
+> Learning y Certification aplican un pipeline explícito —timeout total, hasta dos reintentos con
+> backoff exponencial de 200 ms y 400 ms sin jitter, y un Circuit Breaker— sobre cada consulta al
+> catálogo. Solo se reintentan los fallos transitorios: transporte caído, `408` y `500`–`599`. Un
+> `404` es una respuesta funcional y no se reintenta nunca. Si la operación completa no cabe en
+> `TotalTimeoutSeconds`, o si el circuito está abierto, la petición se resuelve con `503` y
+> `Retry-After`, igual que antes: la resiliencia no cambia ningún código de estado de la v1.
 
 > Los cuerpos de ejemplo van sin acentos a propósito: pegar caracteres no ASCII en una terminal cuya
 > página de códigos no es UTF-8 —el caso por defecto en Windows— los envía mal codificados. Si
 > necesitas acentos, manda el cuerpo desde un archivo: `--data-binary @leccion.json`.
+
+## BFF de composición
+
+`bff-composition` no es un microservicio de negocio: no tiene dominio, ni base de datos, ni
+migraciones. Es una unidad **técnica** que compone en una sola respuesta lo que hoy exige dos
+llamadas —el progreso del estudiante en Learning y el catálogo de Course Authoring—, y que declara
+por escrito qué parte de esa respuesta falta cuando una de las dos fuentes no está.
+
+```bash
+dotnet run --project src/bff/BffComposition.Api --launch-profile http
+```
+
+Escucha en `http://localhost:5199`. Lee `Services:Learning:BaseUrl` y
+`Services:CourseAuthoring:BaseUrl`, y **no arranca si falta cualquiera de las dos**. Lo que sí hace
+es arrancar con Learning y Course Authoring apagados: comprueba configuración, no conectividad.
+
+| Ajuste | Por defecto | Para qué |
+|---|---|---|
+| `Services:Learning:BaseUrl` | `http://localhost:5197` | dependencia **esencial** |
+| `Services:Learning:TotalTimeoutSeconds` | `5` | presupuesto de la llamada completa, reintentos incluidos |
+| `Services:Learning:RetryAfterSeconds` | `5` | valor de la cabecera `Retry-After` del `503` |
+| `Services:CourseAuthoring:BaseUrl` | `http://localhost:5195` | dependencia de **enriquecimiento** |
+| `Services:CourseAuthoring:TotalTimeoutSeconds` | `4` | menor que el de Learning: un catálogo lento no agota el presupuesto de la petición |
+| `Services:CourseAuthoring:MaxEnrichmentConcurrency` | `8` | cuántos cursos se enriquecen a la vez |
+
+Las dos dependencias tienen además `RetryAttempts`, `RetryBaseDelayMilliseconds` y los cuatro
+parámetros `CircuitBreaker*`, con la misma forma que en los tres servicios.
+
+### La ruta
+
+```
+GET /api/v1/me/courses-in-progress
+GET /api/v1/me/courses-in-progress?status=InProgress
+GET /api/v1/me/courses-in-progress?status=Completed
+```
+
+Cabecera obligatoria `X-Student-Id`. Sin `status` devuelve los cursos en progreso. El filtro no
+distingue mayúsculas —`?status=completed` es lo mismo que `?status=Completed`—, igual que Learning;
+cualquier otro valor, incluido el vacío, responde `400` sin llegar a llamar a Learning.
+
+Continuando el recorrido de más arriba, con los cinco procesos arriba:
+
+```bash
+curl -s http://localhost:5199/api/v1/me/courses-in-progress -H "X-Student-Id: $STUDENT"
+# {"items":[{"courseId":"...","courseTitle":"Microservicios con .NET 10","lessonCount":2,
+#            "status":"InProgress","startedAt":"...","completedAt":null,
+#            "completedLessonCount":0,"percentage":null}],
+#  "isPartial":false,"warnings":[]}
+```
+
+`courseTitle` y `lessonCount` los pone Course Authoring; el resto es de Learning. El BFF no calcula
+ningún campo: `percentage` es el de Learning y `lessonCount` el del catálogo. Cada número tiene un
+único dueño.
+
+### Degradación parcial: apaga solo Course Authoring
+
+```bash
+# Deten el proceso de Course Authoring y repite la misma peticion
+curl -s http://localhost:5199/api/v1/me/courses-in-progress -H "X-Student-Id: $STUDENT"
+# {"items":[{"courseId":"...","courseTitle":null,"lessonCount":null,
+#            "status":"InProgress","startedAt":"...","completedAt":null,
+#            "completedLessonCount":0,"percentage":null}],
+#  "isPartial":true,
+#  "warnings":[{"courseId":"...","code":"CourseEnrichmentUnavailable",
+#               "message":"No se pudo obtener del catalogo la informacion del curso ..."}]}
+```
+
+Sigue siendo `200`: Learning respondió, así que la respuesta es verdadera aunque incompleta. Los
+datos de progreso llegan íntegros, los dos campos del catálogo son `null` —nunca un título
+inventado ni `lessonCount: 0`— e `isPartial` con `warnings[]` lo declaran. Al volver a levantar
+Course Authoring, la petición siguiente vuelve a `isPartial: false` sin reiniciar el BFF.
+
+### Dependencia esencial: apaga solo Learning
+
+```bash
+curl -i -s http://localhost:5199/api/v1/me/courses-in-progress -H "X-Student-Id: $STUDENT"
+# HTTP/1.1 503 Service Unavailable
+# Retry-After: 5
+# Content-Type: application/problem+json
+# {"title":"Dependencia esencial no disponible","status":503,
+#  "detail":"No se pudo obtener el progreso del estudiante desde Learning."}
+```
+
+Aquí no hay degradación posible. Solo Learning sabe en qué cursos está matriculado el estudiante:
+una lista construida con el catálogo sería una lista de cursos ajenos presentada como si fuera su
+progreso. El BFF prefiere no responder a responder mal.
+
+### Qué tardan las cosas
+
+Medido en este repositorio, con `curl -o /dev/null -s -w "%{time_total}\n"`:
+
+| Situación | Tiempo | Respuesta |
+|---|---|---|
+| Todo arriba | ≈ 0,02–0,4 s | `200` completo |
+| Course Authoring caído | ≈ 4,0 s | `200` degradado |
+| Learning caído | ≈ 5,0 s | `503` + `Retry-After: 5` |
+| `POST /api/v1/enrollments` con el catálogo caído | ≈ 3,0 s | `503` + `Retry-After: 5` |
+| Matrícula en un curso inexistente, catálogo arriba | ≈ 0,1 s | `422`, sin reintentos |
+
+Cada dependencia termina dentro de su `TotalTimeoutSeconds` y ninguna petición queda colgada. El
+contraste entre los ≈ 0,1 s del `422` y los ≈ 3,0 s de la indisponibilidad es la prueba de que un
+fallo funcional no se reintenta y uno transitorio sí.
+
+> **El Circuit Breaker está configurado pero no llega a abrirse deteniendo un proceso.** En Windows,
+> rechazar una conexión contra un puerto muerto tarda ≈ 2 s, así que el timeout total cancela la
+> operación antes de que se acumulen los tres fallos que el breaker necesita, y una cancelación no
+> se contabiliza como fallo. La configuración está puesta y el orden del pipeline es el correcto;
+> demostrarlo abriéndose exige una dependencia que falle rápido, y es trabajo pendiente.
+
+> **El `/health` del BFF no consulta a Learning ni a Course Authoring.** Responde `Healthy` con las
+> dos apagadas, y es deliberado: un componente cuyo valor es responder degradado no debe declararse
+> enfermo por una dependencia caída, o un orquestador lo reiniciaría justo cuando más útil resulta.
+> La disponibilidad de las fuentes se observa en `isPartial`, en `warnings[]` y en el `503`.
 
 ## Pruebas
 
@@ -692,4 +826,4 @@ termina en `200` con el mismo número de filas que si no se hubiera repetido.
 ## Documentación
 
 El diseño de la plataforma (contextos, decisiones técnicas y diagramas) está en
-[`docs/`](./docs/architecture/architecture-overview.md).
+[`docs/`](./docs/arquitectura/vision-general.md).

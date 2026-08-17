@@ -4,7 +4,7 @@ using System.Text.Json;
 using BffComposition.Api.Actor;
 using Polly;
 namespace BffComposition.Api.Clients.Learning;
-internal sealed class LearningProgressClient(HttpClient httpClient, ICurrentActor currentActor)
+public sealed class LearningProgressClient(HttpClient httpClient, ICurrentActor currentActor)
 {
     public async Task<StudentProgressLookup> GetProgressAsync(
         string status,

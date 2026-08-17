@@ -1,5 +1,5 @@
 namespace BffComposition.Api.Clients.CourseAuthoring;
-internal sealed class CourseEnrichment
+public sealed class CourseEnrichment
 {
     private CourseEnrichment(CourseEnrichmentStatus status, string? title, int? lessonCount)
     {

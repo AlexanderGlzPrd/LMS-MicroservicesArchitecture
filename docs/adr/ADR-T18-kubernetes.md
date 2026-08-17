@@ -60,4 +60,4 @@ Curso 3: cloud-native, Deployments, Services, Pods, réplicas, escalabilidad, re
 troubleshooting, manifiestos y configuración.
 
 ## Decisiones relacionadas
-[T04](./ADR-T04-database-per-service.md) · [T16](./ADR-T16-observability.md) · [T17](./ADR-T17-docker-compose.md)
+[T04](./ADR-T04-base-de-datos-por-servicio.md) · [T16](./ADR-T16-observabilidad.md) · [T17](./ADR-T17-docker-compose.md)
