@@ -18,6 +18,18 @@ internal sealed class UnitOfWork(CertificationDbContext context) : IUnitOfWork
             context.ChangeTracker.Clear();
             throw new DuplicateCertificateException(exception);
         }
+        catch (DbUpdateException exception) when (IsUniqueViolationOn(
+            exception, InboxMessageConfiguration.PrimaryKeyName))
+        {
+            context.ChangeTracker.Clear();
+            throw new DuplicateInboxMessageException(exception);
+        }
+        catch (DbUpdateException exception) when (IsUniqueViolationOn(
+            exception, PendingCertificateIssuanceConfiguration.PrimaryKeyName))
+        {
+            context.ChangeTracker.Clear();
+            throw new DuplicatePendingIssuanceException(exception);
+        }
     }
 
     private static bool IsUniqueViolationOn(DbUpdateException exception, string constraintName) =>
