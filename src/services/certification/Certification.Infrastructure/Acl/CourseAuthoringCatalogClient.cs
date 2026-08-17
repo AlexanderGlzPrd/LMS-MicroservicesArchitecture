@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Certification.Application.Abstractions;
+using Polly;
 namespace Certification.Infrastructure.Acl;
 internal sealed class CourseAuthoringCatalogClient(HttpClient httpClient) : ICourseCatalog
 {
@@ -31,6 +32,10 @@ internal sealed class CourseAuthoringCatalogClient(HttpClient httpClient) : ICou
             return Translate(courseId, body);
         }
         catch (JsonException)
+        {
+            return CourseTitleLookup.Unavailable;
+        }
+        catch (ExecutionRejectedException)
         {
             return CourseTitleLookup.Unavailable;
         }
