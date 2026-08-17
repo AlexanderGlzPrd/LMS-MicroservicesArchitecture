@@ -1,0 +1,3 @@
+using Certification.Domain.Certificates;
+namespace Certification.Application.Certificates.VerifyCertificate;
+public sealed record VerifyCertificateQuery(CertificateId CertificateId);

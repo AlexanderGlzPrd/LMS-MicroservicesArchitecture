@@ -1,8 +1,10 @@
 using Asp.Versioning;
 using BuildingBlocks.Messaging;
+using Certification.Api.Actor;
 using Certification.Api.Errors;
 using Certification.Api.Time;
 using Certification.Application;
+using Certification.Application.Abstractions;
 using Certification.Infrastructure;
 using Certification.Infrastructure.Acl;
 using Certification.Infrastructure.Persistence;
@@ -37,6 +39,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(connectionString, builder.Configuration);
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentActor, HttpCurrentActor>();
 
 builder.Services.AddControllers();
 

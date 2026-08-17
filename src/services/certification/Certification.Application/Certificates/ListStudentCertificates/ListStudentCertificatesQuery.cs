@@ -1,0 +1,2 @@
+namespace Certification.Application.Certificates.ListStudentCertificates;
+public sealed record ListStudentCertificatesQuery;

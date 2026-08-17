@@ -45,6 +45,7 @@ public static class DependencyInjection
             });
 
         AddMessaging(services, configuration);
+        AddIssuance(services, configuration);
 
         return services;
     }
@@ -101,6 +102,20 @@ public static class DependencyInjection
                 });
             });
         });
+    }
+
+    private static void AddIssuance(IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<CertificateIssuanceOptions>(
+            configuration.GetSection(CertificateIssuanceOptions.SectionName));
+
+        var issuance = configuration.GetSection(CertificateIssuanceOptions.SectionName)
+            .Get<CertificateIssuanceOptions>() ?? new CertificateIssuanceOptions();
+
+        if (issuance.Enabled)
+        {
+            services.AddHostedService<CertificateIssuanceDispatcher>();
+        }
     }
 
     private static string EnsureTrailingSlash(string baseUrl) =>
