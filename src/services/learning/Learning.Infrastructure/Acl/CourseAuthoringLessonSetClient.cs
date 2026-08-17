@@ -3,9 +3,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Learning.Application.Abstractions;
 using Learning.Domain.Progress;
-
+using Polly;
 namespace Learning.Infrastructure.Acl;
-
 internal sealed class CourseAuthoringLessonSetClient(HttpClient httpClient) : ICurrentLessonSet
 {
     public async Task<CurrentLessonSet> GetAsync(CourseId courseId, CancellationToken cancellationToken)
@@ -31,6 +30,10 @@ internal sealed class CourseAuthoringLessonSetClient(HttpClient httpClient) : IC
             return Translate(courseId, body);
         }
         catch (JsonException)
+        {
+            return CurrentLessonSet.Unknown;
+        }
+        catch (ExecutionRejectedException)
         {
             return CurrentLessonSet.Unknown;
         }

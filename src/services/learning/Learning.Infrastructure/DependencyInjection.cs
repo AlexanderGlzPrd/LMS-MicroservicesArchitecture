@@ -1,3 +1,4 @@
+using System.Net;
 using BuildingBlocks.Messaging;
 using Learning.Application.Abstractions;
 using Learning.Contracts.V1;
@@ -9,7 +10,9 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
+using Polly;
 namespace Learning.Infrastructure;
 public static class DependencyInjection
 {
@@ -32,14 +35,7 @@ public static class DependencyInjection
         AddMessaging(services, configuration);
         AddProjection(services, configuration);
 
-        services.AddHttpClient<ICurrentLessonSet, CourseAuthoringLessonSetClient>(
-            (provider, client) =>
-            {
-                var options = provider.GetRequiredService<IOptions<CourseAuthoringOptions>>().Value;
-
-                client.BaseAddress = new Uri(EnsureTrailingSlash(options.BaseUrl));
-                client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
-            });
+        AddCourseAuthoringClient(services);
 
         return services;
     }
@@ -123,6 +119,52 @@ public static class DependencyInjection
             services.AddHostedService<ProjectionDispatcher>();
         }
     }
+
+    private static void AddCourseAuthoringClient(IServiceCollection services)
+    {
+        services.AddHttpClient<ICurrentLessonSet, CourseAuthoringLessonSetClient>(
+                (provider, client) =>
+                {
+                    var options = provider
+                        .GetRequiredService<IOptions<CourseAuthoringOptions>>().Value;
+
+                    client.BaseAddress = new Uri(EnsureTrailingSlash(options.BaseUrl));
+
+                    client.Timeout = Timeout.InfiniteTimeSpan;
+                })
+            .AddResilienceHandler("course-authoring", (pipeline, context) =>
+            {
+                var options = context.ServiceProvider
+                    .GetRequiredService<IOptions<CourseAuthoringOptions>>().Value;
+
+                pipeline.AddTimeout(TimeSpan.FromSeconds(options.TotalTimeoutSeconds));
+
+                pipeline.AddRetry(new HttpRetryStrategyOptions
+                {
+                    MaxRetryAttempts = options.RetryAttempts,
+                    BackoffType = DelayBackoffType.Exponential,
+                    UseJitter = false,
+                    Delay = TimeSpan.FromMilliseconds(options.RetryBaseDelayMilliseconds),
+                    ShouldHandle = args => ShouldHandleTransient(args.Outcome),
+                });
+
+                pipeline.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+                {
+                    FailureRatio = options.CircuitBreakerFailureRatio,
+                    SamplingDuration = TimeSpan.FromSeconds(options.CircuitBreakerSamplingSeconds),
+                    MinimumThroughput = options.CircuitBreakerMinimumThroughput,
+                    BreakDuration = TimeSpan.FromSeconds(options.CircuitBreakerBreakSeconds),
+                    ShouldHandle = args => ShouldHandleTransient(args.Outcome),
+                });
+            });
+    }
+
+    private static ValueTask<bool> ShouldHandleTransient(Outcome<HttpResponseMessage> outcome) =>
+        ValueTask.FromResult(
+            outcome.Exception is HttpRequestException
+            || outcome.Result is { StatusCode: HttpStatusCode.RequestTimeout }
+            || (outcome.Result is { } response
+                && (int)response.StatusCode >= 500 && (int)response.StatusCode <= 599));
 
     private static string EnsureTrailingSlash(string baseUrl) =>
         baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/";
