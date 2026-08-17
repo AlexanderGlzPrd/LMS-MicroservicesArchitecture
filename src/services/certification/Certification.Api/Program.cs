@@ -3,6 +3,7 @@ using Certification.Api.Errors;
 using Certification.Api.Time;
 using Certification.Application;
 using Certification.Infrastructure;
+using Certification.Infrastructure.Acl;
 using Certification.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Scalar.AspNetCore;
@@ -15,6 +16,13 @@ builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
 var connectionString = builder.Configuration.GetConnectionString("Certification")
     ?? throw new InvalidOperationException(
         "Falta la cadena de conexion 'Certification' en la configuracion.");
+
+if (string.IsNullOrWhiteSpace(
+        builder.Configuration[$"{CourseAuthoringOptions.SectionName}:BaseUrl"]))
+{
+    throw new InvalidOperationException(
+        $"Falta '{CourseAuthoringOptions.SectionName}:BaseUrl' en la configuracion.");
+}
 
 builder.Services.AddSingleton<TimeProvider>(new MicrosecondTimeProvider(TimeProvider.System));
 builder.Services.AddApplication();
