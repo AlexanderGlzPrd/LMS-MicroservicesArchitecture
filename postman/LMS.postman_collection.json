@@ -1,0 +1,633 @@
+{
+  "info": {
+    "_postman_id": "8f2c1a90-4f3d-4e2b-9a11-0d5c7e6b4a01",
+    "name": "LMS Microservicios",
+    "description": "Coleccion de validacion end-to-end del LMS: autoria de cursos, catalogo publico, matricula, progreso de aprendizaje, certificacion y BFF de composicion.\n\nIdentidad temporal por cabeceras: X-Instructor-Id en Course Authoring, X-Student-Id en Enrollment, Learning, Certification y BFF.\n\nEjecutar las carpetas en orden. Las peticiones guardan courseId, lessonId1, lessonId2 y certificateId en variables de coleccion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "authoringUrl", "value": "http://localhost:5195" },
+    { "key": "enrollmentUrl", "value": "http://localhost:5196" },
+    { "key": "learningUrl", "value": "http://localhost:5197" },
+    { "key": "certificationUrl", "value": "http://localhost:5198" },
+    { "key": "bffUrl", "value": "http://localhost:5199" },
+    { "key": "instructorId", "value": "11111111-1111-1111-1111-111111111111" },
+    { "key": "studentId", "value": "22222222-2222-2222-2222-222222222222" },
+    { "key": "otherStudentId", "value": "99999999-9999-4999-8999-999999999999" },
+    { "key": "missingCourseId", "value": "44444444-4444-4444-4444-444444444444" },
+    { "key": "courseId", "value": "" },
+    { "key": "lessonId1", "value": "" },
+    { "key": "lessonId2", "value": "" },
+    { "key": "certificateId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "00 - Salud",
+      "item": [
+        {
+          "name": "Health Course Authoring",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));", "pm.test('Healthy', () => pm.expect(pm.response.text()).to.eql('Healthy'));"] } }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{authoringUrl}}/health", "host": ["{{authoringUrl}}"], "path": ["health"] } }
+        },
+        {
+          "name": "Health Enrollment",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{enrollmentUrl}}/health", "host": ["{{enrollmentUrl}}"], "path": ["health"] } }
+        },
+        {
+          "name": "Health Learning",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{learningUrl}}/health", "host": ["{{learningUrl}}"], "path": ["health"] } }
+        },
+        {
+          "name": "Health Certification",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{certificationUrl}}/health", "host": ["{{certificationUrl}}"], "path": ["health"] } }
+        },
+        {
+          "name": "Health BFF",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{bffUrl}}/health", "host": ["{{bffUrl}}"], "path": ["health"] } }
+        }
+      ]
+    },
+    {
+      "name": "01 - Autoria (Course Authoring)",
+      "item": [
+        {
+          "name": "Crear curso",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "const body = pm.response.json();",
+            "pm.collectionVariables.set('courseId', body.id);",
+            "pm.test('status Draft', () => pm.expect(body.status).to.eql('Draft'));",
+            "console.log('courseId =', body.id);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Instructor-Id", "value": "{{instructorId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Microservicios con .NET 10\"\n}" },
+            "url": { "raw": "{{authoringUrl}}/api/v1/courses", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "courses"] }
+          }
+        },
+        {
+          "name": "Listar cursos del instructor",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Instructor-Id", "value": "{{instructorId}}" }],
+            "url": { "raw": "{{authoringUrl}}/api/v1/courses", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "courses"] }
+          }
+        },
+        {
+          "name": "Obtener curso por id",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Instructor-Id", "value": "{{instructorId}}" }],
+            "url": { "raw": "{{authoringUrl}}/api/v1/courses/{{courseId}}", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "courses", "{{courseId}}"] }
+          }
+        },
+        {
+          "name": "Renombrar curso",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Instructor-Id", "value": "{{instructorId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Microservicios con .NET 10 - Edicion 2026\"\n}" },
+            "url": { "raw": "{{authoringUrl}}/api/v1/courses/{{courseId}}", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "courses", "{{courseId}}"] }
+          }
+        },
+        {
+          "name": "Agregar leccion 1",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('lessonId1', pm.response.json().id);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Instructor-Id", "value": "{{instructorId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Introduccion\",\n  \"description\": \"Que es un microservicio\",\n  \"videoUrl\": \"https://videos.example.com/1.mp4\"\n}" },
+            "url": { "raw": "{{authoringUrl}}/api/v1/courses/{{courseId}}/lessons", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "courses", "{{courseId}}", "lessons"] }
+          }
+        },
+        {
+          "name": "Agregar leccion 2",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('lessonId2', pm.response.json().id);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Instructor-Id", "value": "{{instructorId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Contextos\",\n  \"description\": \"Como se reparte el dominio\",\n  \"videoUrl\": \"https://videos.example.com/2.mp4\"\n}" },
+            "url": { "raw": "{{authoringUrl}}/api/v1/courses/{{courseId}}/lessons", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "courses", "{{courseId}}", "lessons"] }
+          }
+        },
+        {
+          "name": "Actualizar leccion 1",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "X-Instructor-Id", "value": "{{instructorId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Introduccion revisada\",\n  \"description\": \"Que es un microservicio y cuando conviene\",\n  \"videoUrl\": \"https://videos.example.com/1-v2.mp4\"\n}" },
+            "url": { "raw": "{{authoringUrl}}/api/v1/courses/{{courseId}}/lessons/{{lessonId1}}", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "courses", "{{courseId}}", "lessons", "{{lessonId1}}"] }
+          }
+        },
+        {
+          "name": "Reordenar lecciones",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "X-Instructor-Id", "value": "{{instructorId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"lessonIds\": [\"{{lessonId2}}\", \"{{lessonId1}}\"]\n}" },
+            "url": { "raw": "{{authoringUrl}}/api/v1/courses/{{courseId}}/lessons/order", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "courses", "{{courseId}}", "lessons", "order"] }
+          }
+        },
+        {
+          "name": "Publicar curso",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "pm.test('status Published', () => pm.expect(pm.response.json().status).to.eql('Published'));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-Instructor-Id", "value": "{{instructorId}}" }],
+            "url": { "raw": "{{authoringUrl}}/api/v1/courses/{{courseId}}/publish", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "courses", "{{courseId}}", "publish"] }
+          }
+        },
+        {
+          "name": "Republicar curso (opcional, tras editar contenido)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-Instructor-Id", "value": "{{instructorId}}" }],
+            "url": { "raw": "{{authoringUrl}}/api/v1/courses/{{courseId}}/republish", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "courses", "{{courseId}}", "republish"] }
+          }
+        },
+        {
+          "name": "Crear curso sin cabecera X-Instructor-Id (400)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('400', () => pm.response.to.have.status(400));"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Curso sin instructor\"\n}" },
+            "url": { "raw": "{{authoringUrl}}/api/v1/courses", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "courses"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Catalogo publico",
+      "item": [
+        {
+          "name": "Navegar catalogo (paginado)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{authoringUrl}}/api/v1/catalog/courses?page=1&pageSize=20",
+              "host": ["{{authoringUrl}}"],
+              "path": ["api", "v1", "catalog", "courses"],
+              "query": [{ "key": "page", "value": "1" }, { "key": "pageSize", "value": "20" }]
+            }
+          }
+        },
+        {
+          "name": "Ver curso publicado",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{authoringUrl}}/api/v1/catalog/courses/{{courseId}}", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "catalog", "courses", "{{courseId}}"] }
+          }
+        },
+        {
+          "name": "Ids de lecciones publicadas",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const ids = pm.response.json().lessonIds;",
+            "pm.test('dos lecciones publicadas', () => pm.expect(ids.length).to.eql(2));",
+            "pm.collectionVariables.set('lessonId1', ids[0]);",
+            "pm.collectionVariables.set('lessonId2', ids[1]);"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{authoringUrl}}/api/v1/catalog/courses/{{courseId}}/lesson-ids", "host": ["{{authoringUrl}}"], "path": ["api", "v1", "catalog", "courses", "{{courseId}}", "lesson-ids"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Matricula (Enrollment)",
+      "item": [
+        {
+          "name": "Matricular estudiante",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "pm.test('cabecera Location', () => pm.expect(pm.response.headers.has('Location')).to.be.true);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Student-Id", "value": "{{studentId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"courseId\": \"{{courseId}}\"\n}" },
+            "url": { "raw": "{{enrollmentUrl}}/api/v1/enrollments", "host": ["{{enrollmentUrl}}"], "path": ["api", "v1", "enrollments"] }
+          }
+        },
+        {
+          "name": "Matricular de nuevo (idempotencia)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 OK, no 201', () => pm.response.to.have.status(200));",
+            "pm.test('sin Location', () => pm.expect(pm.response.headers.has('Location')).to.be.false);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Student-Id", "value": "{{studentId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"courseId\": \"{{courseId}}\"\n}" },
+            "url": { "raw": "{{enrollmentUrl}}/api/v1/enrollments", "host": ["{{enrollmentUrl}}"], "path": ["api", "v1", "enrollments"] }
+          }
+        },
+        {
+          "name": "Listar mis matriculas",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": { "raw": "{{enrollmentUrl}}/api/v1/me/enrollments", "host": ["{{enrollmentUrl}}"], "path": ["api", "v1", "me", "enrollments"] }
+          }
+        },
+        {
+          "name": "Ver mi matricula del curso",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": { "raw": "{{enrollmentUrl}}/api/v1/me/enrollments/{{courseId}}", "host": ["{{enrollmentUrl}}"], "path": ["api", "v1", "me", "enrollments", "{{courseId}}"] }
+          }
+        },
+        {
+          "name": "Matricula en curso no publicado (422)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('422 si Course Authoring responde, 503 si esta caido', () => pm.expect([422, 503]).to.include(pm.response.code));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Student-Id", "value": "{{studentId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"courseId\": \"{{missingCourseId}}\"\n}" },
+            "url": { "raw": "{{enrollmentUrl}}/api/v1/enrollments", "host": ["{{enrollmentUrl}}"], "path": ["api", "v1", "enrollments"] }
+          }
+        },
+        {
+          "name": "Matricula sin cabecera X-Student-Id (400)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('400', () => pm.response.to.have.status(400));"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"courseId\": \"{{courseId}}\"\n}" },
+            "url": { "raw": "{{enrollmentUrl}}/api/v1/enrollments", "host": ["{{enrollmentUrl}}"], "path": ["api", "v1", "enrollments"] }
+          }
+        },
+        {
+          "name": "Matricula con courseId nulo (400)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('400', () => pm.response.to.have.status(400));"] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Student-Id", "value": "{{studentId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"courseId\": \"00000000-0000-0000-0000-000000000000\"\n}" },
+            "url": { "raw": "{{enrollmentUrl}}/api/v1/enrollments", "host": ["{{enrollmentUrl}}"], "path": ["api", "v1", "enrollments"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Progreso (Learning)",
+      "item": [
+        {
+          "name": "Ver progreso del curso (404 hasta que llegue StudentEnrolled)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('404 al principio, 200 cuando el consumidor proyecto el progreso', () => pm.expect([200, 404]).to.include(pm.response.code));"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": { "raw": "{{learningUrl}}/api/v1/me/course-progress/{{courseId}}", "host": ["{{learningUrl}}"], "path": ["api", "v1", "me", "course-progress", "{{courseId}}"] }
+          }
+        },
+        {
+          "name": "Marcar leccion 1 completada",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('sigue InProgress', () => pm.expect(body.status).to.eql('InProgress'));",
+            "pm.test('completedAt null', () => pm.expect(body.completedAt).to.be.null);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Student-Id", "value": "{{studentId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"lessonId\": \"{{lessonId1}}\"\n}" },
+            "url": { "raw": "{{learningUrl}}/api/v1/me/course-progress/{{courseId}}/completed-lessons", "host": ["{{learningUrl}}"], "path": ["api", "v1", "me", "course-progress", "{{courseId}}", "completed-lessons"] }
+          }
+        },
+        {
+          "name": "Marcar leccion 2 completada (sella la finalizacion)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('status Completed', () => pm.expect(body.status).to.eql('Completed'));",
+            "pm.test('completedAt con valor', () => pm.expect(body.completedAt).to.not.be.null);",
+            "pm.test('percentage 100', () => pm.expect(Number(body.percentage)).to.eql(100));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Student-Id", "value": "{{studentId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"lessonId\": \"{{lessonId2}}\"\n}" },
+            "url": { "raw": "{{learningUrl}}/api/v1/me/course-progress/{{courseId}}/completed-lessons", "host": ["{{learningUrl}}"], "path": ["api", "v1", "me", "course-progress", "{{courseId}}", "completed-lessons"] }
+          }
+        },
+        {
+          "name": "Repetir marcado de leccion 2 (idempotencia)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "pm.test('sigue Completed', () => pm.expect(pm.response.json().status).to.eql('Completed'));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Student-Id", "value": "{{studentId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"lessonId\": \"{{lessonId2}}\"\n}" },
+            "url": { "raw": "{{learningUrl}}/api/v1/me/course-progress/{{courseId}}/completed-lessons", "host": ["{{learningUrl}}"], "path": ["api", "v1", "me", "course-progress", "{{courseId}}", "completed-lessons"] }
+          }
+        },
+        {
+          "name": "Confirmar finalizacion (explicita, idempotente)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": { "raw": "{{learningUrl}}/api/v1/me/course-progress/{{courseId}}/completion", "host": ["{{learningUrl}}"], "path": ["api", "v1", "me", "course-progress", "{{courseId}}", "completion"] }
+          }
+        },
+        {
+          "name": "Listar todo mi progreso",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": { "raw": "{{learningUrl}}/api/v1/me/course-progress", "host": ["{{learningUrl}}"], "path": ["api", "v1", "me", "course-progress"] }
+          }
+        },
+        {
+          "name": "Filtrar progreso por status=Completed",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": {
+              "raw": "{{learningUrl}}/api/v1/me/course-progress?status=Completed",
+              "host": ["{{learningUrl}}"],
+              "path": ["api", "v1", "me", "course-progress"],
+              "query": [{ "key": "status", "value": "Completed" }]
+            }
+          }
+        },
+        {
+          "name": "Filtro status invalido (400)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('400', () => pm.response.to.have.status(400));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": {
+              "raw": "{{learningUrl}}/api/v1/me/course-progress?status=Cualquiera",
+              "host": ["{{learningUrl}}"],
+              "path": ["api", "v1", "me", "course-progress"],
+              "query": [{ "key": "status", "value": "Cualquiera" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Certificacion",
+      "item": [
+        {
+          "name": "Listar mis certificados",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const items = pm.response.json();",
+            "if (items.length > 0) {",
+            "  pm.collectionVariables.set('certificateId', items[0].certificateId);",
+            "  console.log('certificateId =', items[0].certificateId);",
+            "} else {",
+            "  console.log('lista vacia: el certificado aun no se ha emitido, repetir en unos segundos');",
+            "}"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": { "raw": "{{certificationUrl}}/api/v1/me/certificates", "host": ["{{certificationUrl}}"], "path": ["api", "v1", "me", "certificates"] }
+          }
+        },
+        {
+          "name": "Verificar certificado (publico, sin cabeceras)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "pm.test('valid true', () => pm.expect(pm.response.json().valid).to.be.true);"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{certificationUrl}}/api/v1/certificates/{{certificateId}}", "host": ["{{certificationUrl}}"], "path": ["api", "v1", "certificates", "{{certificateId}}"] }
+          }
+        },
+        {
+          "name": "Ver detalle propio del certificado",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": { "raw": "{{certificationUrl}}/api/v1/me/certificates/{{certificateId}}", "host": ["{{certificationUrl}}"], "path": ["api", "v1", "me", "certificates", "{{certificateId}}"] }
+          }
+        },
+        {
+          "name": "Detalle como otro estudiante (404, no 403)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('404', () => pm.response.to.have.status(404));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{otherStudentId}}" }],
+            "url": { "raw": "{{certificationUrl}}/api/v1/me/certificates/{{certificateId}}", "host": ["{{certificationUrl}}"], "path": ["api", "v1", "me", "certificates", "{{certificateId}}"] }
+          }
+        },
+        {
+          "name": "Verificar certificado inexistente (404)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('404', () => pm.response.to.have.status(404));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{certificationUrl}}/api/v1/certificates/{{missingCourseId}}", "host": ["{{certificationUrl}}"], "path": ["api", "v1", "certificates", "{{missingCourseId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - BFF de composicion",
+      "item": [
+        {
+          "name": "Mis cursos en progreso (por defecto InProgress)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('trae items, isPartial y warnings', () => {",
+            "  pm.expect(body).to.have.property('items');",
+            "  pm.expect(body).to.have.property('isPartial');",
+            "  pm.expect(body).to.have.property('warnings');",
+            "});"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": { "raw": "{{bffUrl}}/api/v1/me/courses-in-progress", "host": ["{{bffUrl}}"], "path": ["api", "v1", "me", "courses-in-progress"] }
+          }
+        },
+        {
+          "name": "Mis cursos completados",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const items = pm.response.json().items;",
+            "pm.test('el curso completado aparece con titulo del catalogo', () => {",
+            "  const match = items.find(i => i.courseId === pm.collectionVariables.get('courseId'));",
+            "  pm.expect(match, 'curso no encontrado en la composicion').to.not.be.undefined;",
+            "  pm.expect(match.courseTitle).to.not.be.null;",
+            "});"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": {
+              "raw": "{{bffUrl}}/api/v1/me/courses-in-progress?status=Completed",
+              "host": ["{{bffUrl}}"],
+              "path": ["api", "v1", "me", "courses-in-progress"],
+              "query": [{ "key": "status", "value": "Completed" }]
+            }
+          }
+        },
+        {
+          "name": "status invalido (400)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('400', () => pm.response.to.have.status(400));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": {
+              "raw": "{{bffUrl}}/api/v1/me/courses-in-progress?status=Cualquiera",
+              "host": ["{{bffUrl}}"],
+              "path": ["api", "v1", "me", "courses-in-progress"],
+              "query": [{ "key": "status", "value": "Cualquiera" }]
+            }
+          }
+        },
+        {
+          "name": "Sin cabecera X-Student-Id (400)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('400', () => pm.response.to.have.status(400));"] } }],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{bffUrl}}/api/v1/me/courses-in-progress", "host": ["{{bffUrl}}"], "path": ["api", "v1", "me", "courses-in-progress"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Degradacion (Course Authoring apagado)",
+      "item": [
+        {
+          "name": "Matricula con catalogo caido (503 + Retry-After)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('503', () => pm.response.to.have.status(503));",
+            "pm.test('Retry-After presente', () => pm.expect(pm.response.headers.has('Retry-After')).to.be.true);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Student-Id", "value": "{{studentId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"courseId\": \"{{missingCourseId}}\"\n}" },
+            "url": { "raw": "{{enrollmentUrl}}/api/v1/enrollments", "host": ["{{enrollmentUrl}}"], "path": ["api", "v1", "enrollments"] }
+          }
+        },
+        {
+          "name": "Marcar leccion con catalogo caido (503)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('503', () => pm.response.to.have.status(503));"] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Student-Id", "value": "{{studentId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"lessonId\": \"{{lessonId1}}\"\n}" },
+            "url": { "raw": "{{learningUrl}}/api/v1/me/course-progress/{{courseId}}/completed-lessons", "host": ["{{learningUrl}}"], "path": ["api", "v1", "me", "course-progress", "{{courseId}}", "completed-lessons"] }
+          }
+        },
+        {
+          "name": "BFF con catalogo caido (200 parcial)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('isPartial true y warnings no vacio', () => {",
+            "  pm.expect(body.isPartial).to.be.true;",
+            "  pm.expect(body.warnings.length).to.be.above(0);",
+            "});"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Student-Id", "value": "{{studentId}}" }],
+            "url": {
+              "raw": "{{bffUrl}}/api/v1/me/courses-in-progress?status=Completed",
+              "host": ["{{bffUrl}}"],
+              "path": ["api", "v1", "me", "courses-in-progress"],
+              "query": [{ "key": "status", "value": "Completed" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
