@@ -55,6 +55,51 @@
       "auto_delete": false,
       "internal": false,
       "arguments": {}
+    },
+    {
+      "name": "lms.saga.commands",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "lms.saga.replies",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "lms.payment-provider-sim.payment-commands",
+      "vhost": "/",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "lms.enrollment.enrollment-grants",
+      "vhost": "/",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "lms.paid-enrollment.saga-replies",
+      "vhost": "/",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
     }
   ],
   "queues": [
@@ -67,6 +112,27 @@
     },
     {
       "name": "lms.learning.student-enrolled",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "lms.payment-provider-sim.payment-commands",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "lms.enrollment.enrollment-grants",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "lms.paid-enrollment.saga-replies",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
@@ -102,6 +168,158 @@
       "source": "lms.learning.student-enrolled",
       "vhost": "/",
       "destination": "lms.learning.student-enrolled",
+      "destination_type": "queue",
+      "routing_key": "",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.commands",
+      "vhost": "/",
+      "destination": "lms.payment-provider-sim.payment-commands",
+      "destination_type": "exchange",
+      "routing_key": "authorize-payment",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.commands",
+      "vhost": "/",
+      "destination": "lms.payment-provider-sim.payment-commands",
+      "destination_type": "exchange",
+      "routing_key": "capture-payment",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.commands",
+      "vhost": "/",
+      "destination": "lms.payment-provider-sim.payment-commands",
+      "destination_type": "exchange",
+      "routing_key": "void-authorization",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.commands",
+      "vhost": "/",
+      "destination": "lms.payment-provider-sim.payment-commands",
+      "destination_type": "exchange",
+      "routing_key": "refund-payment",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.commands",
+      "vhost": "/",
+      "destination": "lms.payment-provider-sim.payment-commands",
+      "destination_type": "exchange",
+      "routing_key": "get-payment-status",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.commands",
+      "vhost": "/",
+      "destination": "lms.enrollment.enrollment-grants",
+      "destination_type": "exchange",
+      "routing_key": "grant-enrollment-for-captured-payment",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.replies",
+      "vhost": "/",
+      "destination": "lms.paid-enrollment.saga-replies",
+      "destination_type": "exchange",
+      "routing_key": "payment-authorized",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.replies",
+      "vhost": "/",
+      "destination": "lms.paid-enrollment.saga-replies",
+      "destination_type": "exchange",
+      "routing_key": "payment-declined",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.replies",
+      "vhost": "/",
+      "destination": "lms.paid-enrollment.saga-replies",
+      "destination_type": "exchange",
+      "routing_key": "payment-captured",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.replies",
+      "vhost": "/",
+      "destination": "lms.paid-enrollment.saga-replies",
+      "destination_type": "exchange",
+      "routing_key": "capture-failed",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.replies",
+      "vhost": "/",
+      "destination": "lms.paid-enrollment.saga-replies",
+      "destination_type": "exchange",
+      "routing_key": "authorization-voided",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.replies",
+      "vhost": "/",
+      "destination": "lms.paid-enrollment.saga-replies",
+      "destination_type": "exchange",
+      "routing_key": "payment-refunded",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.replies",
+      "vhost": "/",
+      "destination": "lms.paid-enrollment.saga-replies",
+      "destination_type": "exchange",
+      "routing_key": "refund-failed",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.replies",
+      "vhost": "/",
+      "destination": "lms.paid-enrollment.saga-replies",
+      "destination_type": "exchange",
+      "routing_key": "payment-status-reported",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.replies",
+      "vhost": "/",
+      "destination": "lms.paid-enrollment.saga-replies",
+      "destination_type": "exchange",
+      "routing_key": "enrollment-granted",
+      "arguments": {}
+    },
+    {
+      "source": "lms.saga.replies",
+      "vhost": "/",
+      "destination": "lms.paid-enrollment.saga-replies",
+      "destination_type": "exchange",
+      "routing_key": "enrollment-rejected",
+      "arguments": {}
+    },
+    {
+      "source": "lms.payment-provider-sim.payment-commands",
+      "vhost": "/",
+      "destination": "lms.payment-provider-sim.payment-commands",
+      "destination_type": "queue",
+      "routing_key": "",
+      "arguments": {}
+    },
+    {
+      "source": "lms.enrollment.enrollment-grants",
+      "vhost": "/",
+      "destination": "lms.enrollment.enrollment-grants",
+      "destination_type": "queue",
+      "routing_key": "",
+      "arguments": {}
+    },
+    {
+      "source": "lms.paid-enrollment.saga-replies",
+      "vhost": "/",
+      "destination": "lms.paid-enrollment.saga-replies",
       "destination_type": "queue",
       "routing_key": "",
       "arguments": {}
