@@ -55,10 +55,4 @@ public sealed class EnrollmentTests
 
         Assert.Empty(setters);
     }
-
-    [Fact]
-    public void EnrollmentType_DeclaraUnUnicoValor()
-    {
-        Assert.Equal([EnrollmentType.Free], Enum.GetValues<EnrollmentType>());
-    }
 }

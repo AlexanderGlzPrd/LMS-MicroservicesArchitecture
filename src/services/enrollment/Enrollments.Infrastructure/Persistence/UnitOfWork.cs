@@ -24,6 +24,12 @@ internal sealed class UnitOfWork(EnrollmentsDbContext context) : IUnitOfWork
             context.ChangeTracker.Clear();
             throw new DuplicateOutboxMessageException(exception);
         }
+        catch (DbUpdateException exception) when (IsUniqueViolationOn(
+            exception, PurchaseGrantConfiguration.PrimaryKeyName))
+        {
+            context.ChangeTracker.Clear();
+            throw new DuplicatePurchaseGrantException(exception);
+        }
     }
 
     private static bool IsUniqueViolationOn(DbUpdateException exception, string constraintName) =>

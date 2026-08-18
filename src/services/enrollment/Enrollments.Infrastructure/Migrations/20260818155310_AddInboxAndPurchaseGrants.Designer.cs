@@ -3,6 +3,7 @@ using System;
 using Enrollments.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Enrollments.Infrastructure.Migrations
 {
     [DbContext(typeof(EnrollmentsDbContext))]
-    partial class EnrollmentsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260818155310_AddInboxAndPurchaseGrants")]
+    partial class AddInboxAndPurchaseGrants
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -119,11 +122,6 @@ namespace Enrollments.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("PublishedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("published_at");
-
-                    b.Property<string>("RoutingKey")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
-                        .HasColumnName("routing_key");
 
                     b.HasKey("Id")
                         .HasName("pk_outbox_messages");

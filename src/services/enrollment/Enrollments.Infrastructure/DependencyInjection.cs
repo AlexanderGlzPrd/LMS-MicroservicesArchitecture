@@ -29,6 +29,8 @@ public static class DependencyInjection
         services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IOutbox, OutboxWriter>();
+        services.AddScoped<IInbox, InboxRecorder>();
+        services.AddScoped<IPurchaseGrantLedger, PurchaseGrantLedger>();
 
         services.Configure<CourseAuthoringOptions>(
             configuration.GetSection(CourseAuthoringOptions.SectionName));

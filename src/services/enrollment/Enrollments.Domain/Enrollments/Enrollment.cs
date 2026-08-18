@@ -27,6 +27,25 @@ public sealed class Enrollment
         };
     }
 
+    public static Enrollment GrantPaid(
+        EnrollmentId id,
+        StudentId studentId,
+        CourseId courseId,
+        DateTimeOffset grantedAt)
+    {
+        EnsureNotEmpty(studentId.Value, nameof(studentId));
+        EnsureNotEmpty(courseId.Value, nameof(courseId));
+
+        return new Enrollment
+        {
+            Id = id,
+            StudentId = studentId,
+            CourseId = courseId,
+            Type = EnrollmentType.Paid,
+            EnrolledAt = grantedAt,
+        };
+    }
+
     private static void EnsureNotEmpty(Guid value, string identityName)
     {
         if (value == Guid.Empty)

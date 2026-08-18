@@ -29,6 +29,10 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
             .HasMaxLength(200)
             .IsRequired();
 
+        builder.Property(message => message.RoutingKey)
+            .HasColumnName("routing_key")
+            .HasMaxLength(60);
+
         builder.Property(message => message.Payload)
             .HasColumnName("payload")
             .HasColumnType("jsonb")

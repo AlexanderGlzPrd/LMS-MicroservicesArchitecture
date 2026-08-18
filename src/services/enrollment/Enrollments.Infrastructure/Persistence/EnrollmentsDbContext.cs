@@ -10,6 +10,10 @@ public sealed class EnrollmentsDbContext(DbContextOptions<EnrollmentsDbContext> 
 
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
+    internal DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+
+    internal DbSet<PurchaseGrant> PurchaseGrants => Set<PurchaseGrant>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(EnrollmentsDbContext).Assembly);

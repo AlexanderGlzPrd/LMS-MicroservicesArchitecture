@@ -7,6 +7,8 @@ internal sealed class OutboxMessage
 
     public required string MessageType { get; init; }
 
+    public string? RoutingKey { get; init; }
+
     public required string Payload { get; init; }
 
     public required DateTimeOffset OccurredAt { get; init; }
