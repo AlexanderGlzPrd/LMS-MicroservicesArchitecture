@@ -1,5 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="MassTransit" />
     <PackageReference Include="MassTransit.RabbitMQ" />
@@ -11,15 +10,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Enrollments.Application\Enrollments.Application.csproj" />
-    <ProjectReference Include="..\Enrollments.Contracts\Enrollments.Contracts.csproj" />
-    <ProjectReference Include="..\..\paid-enrollment\PaidEnrollment.Contracts\PaidEnrollment.Contracts.csproj" />
+    <ProjectReference Include="..\PaidEnrollment.Application\PaidEnrollment.Application.csproj" />
+    <ProjectReference Include="..\PaidEnrollment.Contracts\PaidEnrollment.Contracts.csproj" />
+    <ProjectReference Include="..\..\payment-provider-sim\PaymentProviderSim.Contracts\PaymentProviderSim.Contracts.csproj" />
+    <ProjectReference Include="..\..\enrollment\Enrollments.Contracts\Enrollments.Contracts.csproj" />
     <ProjectReference Include="..\..\..\building-blocks\BuildingBlocks.Messaging\BuildingBlocks.Messaging.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="Enrollments.Integration.Tests" />
-    <InternalsVisibleTo Include="Enrollments.Component.Tests" />
-  </ItemGroup>
-
 </Project>

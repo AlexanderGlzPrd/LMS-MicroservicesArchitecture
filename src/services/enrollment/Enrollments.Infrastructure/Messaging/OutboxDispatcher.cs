@@ -100,16 +100,67 @@ internal sealed class OutboxDispatcher(
         OutboxMessage row,
         CancellationToken stoppingToken)
     {
-        if (row.MessageType != OutboxContractMapper.StudentEnrolledType)
+        using var attempt = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+        attempt.CancelAfter(TimeSpan.FromSeconds(options.Value.PublishTimeoutSeconds));
+
+        var token = attempt.Token;
+
+        if (row.MessageType == OutboxContractMapper.StudentEnrolledType)
         {
-            throw new UnsupportedOutboxMessageTypeException(row.Id, row.MessageType);
+            await PublishAsync(publishEndpoint, row, Reconstruct<StudentEnrolled>(
+                row,
+                contract => contract.StudentId != Guid.Empty
+                    && contract.CourseId != Guid.Empty
+                    && contract.OccurredAt != default), token);
+
+            return;
         }
 
-        StudentEnrolled? contract;
+        if (row.MessageType == OutboxContractMapper.EnrollmentGrantedType)
+        {
+            await PublishAsync(publishEndpoint, row, Reconstruct<EnrollmentGranted>(
+                row,
+                contract => IsCorrelated(
+                        contract.PurchaseId, contract.StudentId, contract.CourseId,
+                        contract.OccurredAt)
+                    && !string.IsNullOrWhiteSpace(contract.Outcome)
+                    && !string.IsNullOrWhiteSpace(contract.Origin)), token);
+
+            return;
+        }
+
+        if (row.MessageType == OutboxContractMapper.EnrollmentRejectedType)
+        {
+            await PublishAsync(publishEndpoint, row, Reconstruct<EnrollmentRejected>(
+                row,
+                contract => IsCorrelated(
+                        contract.PurchaseId, contract.StudentId, contract.CourseId,
+                        contract.OccurredAt)
+                    && !string.IsNullOrWhiteSpace(contract.Reason)), token);
+
+            return;
+        }
+
+        throw new UnsupportedOutboxMessageTypeException(row.Id, row.MessageType);
+    }
+
+    private static bool IsCorrelated(
+        Guid purchaseId, Guid studentId, Guid courseId, DateTimeOffset occurredAt) =>
+        purchaseId != Guid.Empty
+        && studentId != Guid.Empty
+        && courseId != Guid.Empty
+        && occurredAt != default;
+
+    private static TContract Reconstruct<TContract>(
+        OutboxMessage row,
+        Func<TContract, bool> isUsable)
+        where TContract : class
+    {
+        TContract? contract;
 
         try
         {
-            contract = JsonSerializer.Deserialize<StudentEnrolled>(
+            contract = JsonSerializer.Deserialize<TContract>(
                 row.Payload, OutboxSerialization.Options);
         }
         catch (JsonException exception)
@@ -117,18 +168,29 @@ internal sealed class OutboxDispatcher(
             throw new CorruptOutboxPayloadException(row.Id, exception);
         }
 
-        if (contract is null
-            || contract.StudentId == Guid.Empty
-            || contract.CourseId == Guid.Empty
-            || contract.OccurredAt == default)
+        if (contract is null || !isUsable(contract))
         {
             throw new CorruptOutboxPayloadException(row.Id);
         }
 
-        using var attempt = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-        attempt.CancelAfter(TimeSpan.FromSeconds(options.Value.PublishTimeoutSeconds));
-        await publishEndpoint.Publish(contract, context => context.MessageId = row.Id, attempt.Token);
+        return contract;
     }
+
+    private static Task PublishAsync<TContract>(
+        IPublishEndpoint publishEndpoint,
+        OutboxMessage row,
+        TContract contract,
+        CancellationToken token)
+        where TContract : class =>
+        publishEndpoint.Publish(contract, context =>
+        {
+            context.MessageId = row.Id;
+
+            if (row.RoutingKey is not null)
+            {
+                context.SetRoutingKey(row.RoutingKey);
+            }
+        }, token);
 
     private void RecordFailedAttempt(OutboxMessage message, Exception exception)
     {

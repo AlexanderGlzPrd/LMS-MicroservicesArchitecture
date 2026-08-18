@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using Polly;
+using RabbitMQ.Client;
 
 namespace Enrollments.Infrastructure;
 
@@ -54,6 +55,8 @@ public static class DependencyInjection
 
         services.AddMassTransit(bus =>
         {
+            bus.AddConsumer<GrantEnrollmentForCapturedPaymentConsumer>();
+
             bus.UsingRabbitMq((context, configurator) =>
             {
                 configurator.Host(
@@ -68,6 +71,36 @@ public static class DependencyInjection
 
                 configurator.Message<StudentEnrolled>(
                     message => message.SetEntityName("lms.enrollment"));
+
+                ConfigureReply<EnrollmentGranted>(configurator);
+                ConfigureReply<EnrollmentRejected>(configurator);
+
+                configurator.ReceiveEndpoint("lms.enrollment.enrollment-grants", endpoint =>
+                {
+                    endpoint.ConfigureConsumeTopology = false;
+                    endpoint.Durable = true;
+                    endpoint.AutoDelete = false;
+
+                    endpoint.Bind("lms.saga.commands", binding =>
+                    {
+                        binding.ExchangeType = ExchangeType.Topic;
+                        binding.Durable = true;
+                        binding.AutoDelete = false;
+                        binding.RoutingKey = "grant-enrollment-for-captured-payment";
+                    });
+
+                    endpoint.UseMessageRetry(retry =>
+                    {
+                        retry.Intervals(
+                            TimeSpan.FromMilliseconds(200),
+                            TimeSpan.FromMilliseconds(500),
+                            TimeSpan.FromSeconds(1));
+
+                        retry.Ignore<InvalidGrantEnrollmentMessageException>();
+                    });
+
+                    endpoint.ConfigureConsumer<GrantEnrollmentForCapturedPaymentConsumer>(context);
+                });
             });
         });
 
@@ -128,4 +161,11 @@ public static class DependencyInjection
 
     private static string EnsureTrailingSlash(string baseUrl) =>
         baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/";
+
+    private static void ConfigureReply<TContract>(IRabbitMqBusFactoryConfigurator configurator)
+        where TContract : class
+    {
+        configurator.Message<TContract>(message => message.SetEntityName("lms.saga.replies"));
+        configurator.Publish<TContract>(publish => publish.ExchangeType = ExchangeType.Topic);
+    }
 }
