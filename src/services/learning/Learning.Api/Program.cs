@@ -45,6 +45,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentActor, HttpCurrentActor>();
 
 var authority = builder.Configuration["Authentication:Authority"];
+var metadataAddress = builder.Configuration["Authentication:MetadataAddress"];
 
 if (string.IsNullOrWhiteSpace(authority))
 {
@@ -65,6 +66,12 @@ builder.Services
     .AddJwtBearer(options =>
     {
         options.Authority = authority;
+
+        if (!string.IsNullOrWhiteSpace(metadataAddress))
+        {
+            options.MetadataAddress = metadataAddress;
+        }
+
         options.Audience = audience;
         options.RequireHttpsMetadata = builder.Configuration
             .GetValue("Authentication:RequireHttpsMetadata", true);

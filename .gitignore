@@ -5,6 +5,8 @@
 
 # dotenv files
 .env
+!.env
+.env.local
 .editorconfig
 
 # User-specific files
