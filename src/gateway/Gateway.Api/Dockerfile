@@ -2,12 +2,14 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
 WORKDIR /src
 
 COPY global.json Directory.Build.props Directory.Packages.props ./
+COPY src/building-blocks/BuildingBlocks.Observability/BuildingBlocks.Observability.csproj src/building-blocks/BuildingBlocks.Observability/
 COPY src/gateway/Gateway.Api/Gateway.Api.csproj src/gateway/Gateway.Api/
 
 RUN dotnet restore src/gateway/Gateway.Api/Gateway.Api.csproj
 
 FROM restore AS publish
 COPY src/gateway/ src/gateway/
+COPY src/building-blocks/BuildingBlocks.Observability/ src/building-blocks/BuildingBlocks.Observability/
 RUN dotnet publish src/gateway/Gateway.Api/Gateway.Api.csproj \
     -c Release --no-restore -o /app/publish
 

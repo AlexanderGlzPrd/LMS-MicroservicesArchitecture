@@ -12,6 +12,8 @@ x-dotnet-healthcheck: &dotnet-healthcheck
 x-dotnet-environment: &dotnet-environment
   ASPNETCORE_ENVIRONMENT: Development
   ASPNETCORE_URLS: http://+:8080
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
 
 x-dotnet-depends-on: &dotnet-depends-on
   postgres:
@@ -110,6 +112,7 @@ services:
     depends_on: *dotnet-depends-on
     environment:
       <<: *dotnet-environment
+      OTEL_SERVICE_NAME: course-authoring
       ConnectionStrings__CourseAuthoring: "Host=postgres;Port=5432;Database=course_authoring;Username=course_authoring_user;Password=course_authoring_dev"
       Authentication__MetadataAddress: http://keycloak:8080/realms/lms/.well-known/openid-configuration
     ports:
@@ -133,6 +136,7 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *dotnet-environment
+      OTEL_SERVICE_NAME: enrollment
       ConnectionStrings__Enrollment: "Host=postgres;Port=5432;Database=enrollment;Username=enrollment_user;Password=enrollment_dev"
       Messaging__RabbitMq__Host: rabbitmq
       Services__CourseAuthoring__BaseUrl: http://course-authoring:8080
@@ -158,6 +162,7 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *dotnet-environment
+      OTEL_SERVICE_NAME: learning
       ConnectionStrings__Learning: "Host=postgres;Port=5432;Database=learning;Username=learning_user;Password=learning_dev"
       Messaging__RabbitMq__Host: rabbitmq
       Services__CourseAuthoring__BaseUrl: http://course-authoring:8080
@@ -183,6 +188,7 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *dotnet-environment
+      OTEL_SERVICE_NAME: certification
       ConnectionStrings__Certification: "Host=postgres;Port=5432;Database=certification;Username=certification_user;Password=certification_dev"
       Messaging__RabbitMq__Host: rabbitmq
       Services__CourseAuthoring__BaseUrl: http://course-authoring:8080
@@ -205,6 +211,7 @@ services:
     depends_on: *dotnet-depends-on
     environment:
       <<: *dotnet-environment
+      OTEL_SERVICE_NAME: bff-composition
       Services__Learning__BaseUrl: http://learning:8080
       Services__CourseAuthoring__BaseUrl: http://course-authoring:8080
       Authentication__MetadataAddress: http://keycloak:8080/realms/lms/.well-known/openid-configuration
@@ -237,6 +244,7 @@ services:
         condition: service_healthy
     environment:
       <<: *dotnet-environment
+      OTEL_SERVICE_NAME: gateway
       ReverseProxy__Clusters__course-authoring__Destinations__primary__Address: http://course-authoring:8080
       ReverseProxy__Clusters__enrollment__Destinations__primary__Address: http://enrollment:8080
       ReverseProxy__Clusters__learning__Destinations__primary__Address: http://learning:8080
@@ -265,6 +273,7 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *dotnet-environment
+      OTEL_SERVICE_NAME: paid-enrollment
       ConnectionStrings__PaidEnrollment: "Host=postgres;Port=5432;Database=purchase;Username=purchase_user;Password=purchase_dev"
       Messaging__RabbitMq__Host: rabbitmq
       Services__Enrollment__BaseUrl: http://enrollment:8080
@@ -292,6 +301,7 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *dotnet-environment
+      OTEL_SERVICE_NAME: payment-provider-sim
       ConnectionStrings__PaymentProviderSim: "Host=postgres;Port=5432;Database=payments;Username=payments_user;Password=payments_dev"
       Messaging__RabbitMq__Host: rabbitmq
     ports:

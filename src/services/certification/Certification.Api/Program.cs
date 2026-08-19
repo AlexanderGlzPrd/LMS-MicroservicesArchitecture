@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using BuildingBlocks.Messaging;
+using BuildingBlocks.Observability;
 using Certification.Api.Actor;
 using Certification.Api.Errors;
 using Certification.Api.Time;
@@ -19,6 +20,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
+builder.AddLmsObservability("certification");
 
 var connectionString = builder.Configuration.GetConnectionString("Certification")
     ?? throw new InvalidOperationException(

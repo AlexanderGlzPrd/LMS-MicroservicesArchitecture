@@ -1,7 +1,6 @@
 using Asp.Versioning;
-
 using BuildingBlocks.Messaging;
-
+using BuildingBlocks.Observability;
 using Enrollments.Api.Actor;
 using Enrollments.Api.Errors;
 using Enrollments.Api.Time;
@@ -21,6 +20,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
+builder.AddLmsObservability("enrollment");
 
 var connectionString = builder.Configuration.GetConnectionString("Enrollment")
     ?? throw new InvalidOperationException(

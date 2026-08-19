@@ -2,6 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
 WORKDIR /src
 
 COPY global.json Directory.Build.props Directory.Packages.props ./
+COPY src/building-blocks/BuildingBlocks.Observability/BuildingBlocks.Observability.csproj src/building-blocks/BuildingBlocks.Observability/
 COPY src/building-blocks/BuildingBlocks.Messaging/BuildingBlocks.Messaging.csproj                        src/building-blocks/BuildingBlocks.Messaging/
 COPY src/services/paid-enrollment/PaidEnrollment.Api/PaidEnrollment.Api.csproj                           src/services/paid-enrollment/PaidEnrollment.Api/
 COPY src/services/paid-enrollment/PaidEnrollment.Application/PaidEnrollment.Application.csproj           src/services/paid-enrollment/PaidEnrollment.Application/
@@ -18,6 +19,7 @@ COPY src/building-blocks/BuildingBlocks.Messaging/                    src/buildi
 COPY src/services/paid-enrollment/                                    src/services/paid-enrollment/
 COPY src/services/payment-provider-sim/PaymentProviderSim.Contracts/  src/services/payment-provider-sim/PaymentProviderSim.Contracts/
 COPY src/services/enrollment/Enrollments.Contracts/                   src/services/enrollment/Enrollments.Contracts/
+COPY src/building-blocks/BuildingBlocks.Observability/ src/building-blocks/BuildingBlocks.Observability/
 RUN dotnet publish src/services/paid-enrollment/PaidEnrollment.Api/PaidEnrollment.Api.csproj \
     -c Release --no-restore -o /app/publish
 

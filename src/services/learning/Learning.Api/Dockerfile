@@ -2,6 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
 WORKDIR /src
 
 COPY global.json Directory.Build.props Directory.Packages.props ./
+COPY src/building-blocks/BuildingBlocks.Observability/BuildingBlocks.Observability.csproj src/building-blocks/BuildingBlocks.Observability/
 COPY src/building-blocks/BuildingBlocks.Messaging/BuildingBlocks.Messaging.csproj         src/building-blocks/BuildingBlocks.Messaging/
 COPY src/services/learning/Learning.Api/Learning.Api.csproj                               src/services/learning/Learning.Api/
 COPY src/services/learning/Learning.Application/Learning.Application.csproj               src/services/learning/Learning.Application/
@@ -16,6 +17,7 @@ FROM restore AS publish
 COPY src/building-blocks/BuildingBlocks.Messaging/       src/building-blocks/BuildingBlocks.Messaging/
 COPY src/services/learning/                              src/services/learning/
 COPY src/services/enrollment/Enrollments.Contracts/      src/services/enrollment/Enrollments.Contracts/
+COPY src/building-blocks/BuildingBlocks.Observability/ src/building-blocks/BuildingBlocks.Observability/
 RUN dotnet publish src/services/learning/Learning.Api/Learning.Api.csproj \
     -c Release --no-restore -o /app/publish
 

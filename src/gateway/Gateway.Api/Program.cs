@@ -1,3 +1,4 @@
+using BuildingBlocks.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Yarp.ReverseProxy.Transforms;
@@ -5,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
+builder.AddLmsObservability("gateway");
 
 var authority = builder.Configuration["Authentication:Authority"];
 var metadataAddress = builder.Configuration["Authentication:MetadataAddress"];

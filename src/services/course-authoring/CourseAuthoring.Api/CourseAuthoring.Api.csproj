@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CourseAuthoring.Application\CourseAuthoring.Application.csproj" />
     <ProjectReference Include="..\CourseAuthoring.Infrastructure\CourseAuthoring.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\building-blocks\BuildingBlocks.Observability\BuildingBlocks.Observability.csproj" />
   </ItemGroup>
 
 </Project>

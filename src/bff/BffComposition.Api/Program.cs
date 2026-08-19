@@ -4,6 +4,7 @@ using BffComposition.Api.Clients.CourseAuthoring;
 using BffComposition.Api.Clients.Learning;
 using BffComposition.Api.Composition;
 using BffComposition.Api.Errors;
+using BuildingBlocks.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
@@ -13,6 +14,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
+builder.AddLmsObservability("bff-composition");
 
 //Validacion de configuracion, no de conectividad: el BFF arranca con las dependencias caidas
 if (string.IsNullOrWhiteSpace(

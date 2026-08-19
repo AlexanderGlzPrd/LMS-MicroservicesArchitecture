@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using BuildingBlocks.Observability;
 using CourseAuthoring.Api.Actor;
 using CourseAuthoring.Api.Errors;
 using CourseAuthoring.Application;
@@ -14,6 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
+builder.AddLmsObservability("course-authoring");
 
 var connectionString = builder.Configuration.GetConnectionString("CourseAuthoring")
     ?? throw new InvalidOperationException(

@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\..\building-blocks\BuildingBlocks.Messaging\BuildingBlocks.Messaging.csproj" />
     <ProjectReference Include="..\PaidEnrollment.Application\PaidEnrollment.Application.csproj" />
     <ProjectReference Include="..\PaidEnrollment.Infrastructure\PaidEnrollment.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\building-blocks\BuildingBlocks.Observability\BuildingBlocks.Observability.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using BuildingBlocks.Messaging;
+using BuildingBlocks.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -17,6 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
+builder.AddLmsObservability("paid-enrollment");
 
 var connectionString = builder.Configuration.GetConnectionString("PaidEnrollment")
     ?? throw new InvalidOperationException(

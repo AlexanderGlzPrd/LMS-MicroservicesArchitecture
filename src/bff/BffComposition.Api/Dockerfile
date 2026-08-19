@@ -2,12 +2,14 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
 WORKDIR /src
 
 COPY global.json Directory.Build.props Directory.Packages.props ./
+COPY src/building-blocks/BuildingBlocks.Observability/BuildingBlocks.Observability.csproj src/building-blocks/BuildingBlocks.Observability/
 COPY src/bff/BffComposition.Api/BffComposition.Api.csproj src/bff/BffComposition.Api/
 
 RUN dotnet restore src/bff/BffComposition.Api/BffComposition.Api.csproj
 
 FROM restore AS publish
 COPY src/bff/ src/bff/
+COPY src/building-blocks/BuildingBlocks.Observability/ src/building-blocks/BuildingBlocks.Observability/
 RUN dotnet publish src/bff/BffComposition.Api/BffComposition.Api.csproj \
     -c Release --no-restore -o /app/publish
 

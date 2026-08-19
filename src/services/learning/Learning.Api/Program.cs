@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using BuildingBlocks.Messaging;
+using BuildingBlocks.Observability;
 using Learning.Api.Actor;
 using Learning.Api.Errors;
 using Learning.Api.Time;
@@ -18,6 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
+builder.AddLmsObservability("learning");
 
 var connectionString = builder.Configuration.GetConnectionString("Learning")
     ?? throw new InvalidOperationException(
