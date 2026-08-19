@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PaidEnrollment.Api.Contracts;
 using PaidEnrollment.Application.Purchases.GetPurchase;
@@ -14,6 +15,7 @@ public sealed class PurchasesController(
     GetPurchaseHandler getPurchaseHandler,
     ResolveManualReviewHandler resolveManualReviewHandler) : ControllerBase
 {
+    [Authorize(Policy = "Student")]
     [HttpPost]
     [ProducesResponseType<PurchaseResponse>(StatusCodes.Status202Accepted)]
     [ProducesResponseType<PurchaseResponse>(StatusCodes.Status200OK)]
@@ -49,6 +51,7 @@ public sealed class PurchasesController(
             response);
     }
 
+    [Authorize(Policy = "Student")]
     [HttpGet("{purchaseId:guid}")]
     [ProducesResponseType<PurchaseResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -64,6 +67,7 @@ public sealed class PurchasesController(
         return Ok(PurchaseResponse.Detailed(view));
     }
 
+    [Authorize(Policy = "Administrator")]
     [HttpPost("{purchaseId:guid}/resolutions")]
     [ProducesResponseType<PurchaseResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]

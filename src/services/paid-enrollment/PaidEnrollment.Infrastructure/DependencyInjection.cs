@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using PaidEnrollment.Application.Abstractions;
 using PaidEnrollment.Contracts.V1;
 using PaidEnrollment.Infrastructure.Acl;
+using PaidEnrollment.Infrastructure.Identity;
 using PaidEnrollment.Infrastructure.Messaging;
 using PaidEnrollment.Infrastructure.Persistence;
 using PaidEnrollment.Infrastructure.Pricing;
@@ -66,6 +67,28 @@ public static class DependencyInjection
 
     private static void AddEnrollmentClient(IServiceCollection services)
     {
+        services.AddHttpClient(ServiceTokenProvider.HttpClientName, client =>
+                client.Timeout = Timeout.InfiniteTimeSpan)
+            .AddResilienceHandler("enrollment-token", (pipeline, context) =>
+            {
+                var options = context.ServiceProvider
+                    .GetRequiredService<IOptions<EnrollmentOptions>>().Value;
+
+                pipeline.AddTimeout(TimeSpan.FromSeconds(options.TotalTimeoutSeconds));
+
+                // Sin circuit breaker propio
+                pipeline.AddRetry(new HttpRetryStrategyOptions
+                {
+                    MaxRetryAttempts = options.RetryAttempts,
+                    BackoffType = DelayBackoffType.Exponential,
+                    UseJitter = false,
+                    Delay = TimeSpan.FromMilliseconds(options.RetryBaseDelayMilliseconds),
+                    ShouldHandle = args => ShouldHandleTransient(args.Outcome),
+                });
+            });
+
+        services.AddSingleton<ServiceTokenProvider>();
+
         services.AddHttpClient<IEnrollmentAccess, EnrollmentAccessClient>(
                 (provider, client) =>
                 {

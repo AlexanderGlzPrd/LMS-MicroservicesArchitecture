@@ -1,10 +1,15 @@
 namespace PaidEnrollment.Infrastructure.Acl;
-
 public sealed class EnrollmentOptions
 {
     public const string SectionName = "Services:Enrollment";
 
     public string BaseUrl { get; set; } = string.Empty;
+
+    public string ClientId { get; set; } = string.Empty;
+
+    public string ClientSecret { get; set; } = string.Empty;
+
+    public string TokenEndpoint { get; set; } = string.Empty;
 
     public int TotalTimeoutSeconds { get; set; } = 5;
 

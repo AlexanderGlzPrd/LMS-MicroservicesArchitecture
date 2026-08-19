@@ -13,14 +13,9 @@ internal sealed class GlobalExceptionHandler(
     {
         var (statusCode, title, detail) = exception switch
         {
-            MissingStudentHeaderException => (
-                StatusCodes.Status400BadRequest,
-                "Estudiante no identificado",
-                exception.Message),
-
-            MissingOperatorHeaderException => (
-                StatusCodes.Status400BadRequest,
-                "Operador no identificado",
+            InvalidActorClaimException => (
+                StatusCodes.Status401Unauthorized,
+                "Actor no identificado",
                 exception.Message),
 
             PurchaseNotFoundException => (
