@@ -2,10 +2,12 @@
 
 Plataforma de formación donde un instructor crea cursos con lecciones, los publica y un público
 general los consulta en un catálogo; un estudiante puede matricularse gratuitamente en los cursos
-publicados y avanzar por ellos hasta finalizarlos. El objetivo es construir, de forma incremental,
-una plataforma de aprendizaje sobre una arquitectura de microservicios en .NET.
+publicados y avanzar por ellos hasta finalizarlos; también puede comprar el acceso a un curso de
+pago. El sistema está repartido en servicios independientes escritos en .NET, cada uno con su base
+de datos y su propio ciclo de despliegue.
 
-Hoy el repositorio contiene seis microservicios ejecutables y un BFF de composición:
+El repositorio contiene seis microservicios ejecutables, un BFF de composición y un gateway de
+entrada:
 
 | Unidad | Puerto | Qué hace |
 |---|---|---|
@@ -16,6 +18,7 @@ Hoy el repositorio contiene seis microservicios ejecutables y un BFF de composic
 | **BFF de composición** | `5199` | una sola respuesta con el progreso del estudiante y los datos del catálogo |
 | **Paid Enrollment** | `5200` | compra de acceso a un curso, coordinada como una Saga con compensaciones |
 | **Payment Provider Sim** | `5201` | proveedor de pago simulado; solo expone `/health` |
+| **Gateway** | `5202` | entrada única: valida el token, autoriza por ruta y reenvía a su destino |
 
 Cada uno de los servicios tiene su propia base de datos y su propio usuario de PostgreSQL,
 sin acceso a las bases de los demás. Enrollment no lee la base de Course Authoring: le pregunta por
@@ -75,7 +78,7 @@ un cobro o una devolución que nadie ha confirmado.
 | Requisito | Versión | Para qué |
 |---|---|---|
 | .NET SDK | 10.0.302 o superior dentro de 10.0 (fijada en `global.json`) | compilar y ejecutar |
-| Docker Desktop | reciente | PostgreSQL y RabbitMQ locales, y pruebas de integración |
+| Docker Desktop | reciente | PostgreSQL, RabbitMQ y Keycloak locales, y pruebas de integración |
 | `dotnet-ef` | 10.x | aplicar migraciones |
 
 ```bash
@@ -99,29 +102,55 @@ Todos los comandos siguientes se ejecutan desde la raíz del repositorio.
 
 ## Ejecución
 
-### 1. Levantar PostgreSQL y RabbitMQ
+### 1. Levantar PostgreSQL, RabbitMQ y Keycloak
 
 ```bash
 docker compose down -v     # obligatorio si ya tenías el volumen de una versión anterior
 docker compose up -d
-docker compose ps          # esperar STATUS = healthy en los dos contenedores
+docker compose ps          # esperar STATUS = healthy en los tres contenedores
 ```
 
-Levanta dos contenedores:
+Levanta tres contenedores:
 
 | Contenedor | Puertos | Qué es |
 |---|---|---|
 | `lms-postgres` | `5432` | PostgreSQL 17 |
 | `lms-rabbitmq` | `5672` (AMQP) · `15672` (interfaz de gestión) | RabbitMQ 4 |
+| `lms-keycloak` | `8080` | Keycloak 26 con el realm `lms` importado |
 
 La interfaz de gestión del broker está en <http://localhost:15672> con usuario `lms` y contraseña
 `lms`. Desde ahí se ven el exchange, la cola, cuántos mensajes hay pendientes y la cola de errores,
 sin escribir una sola consulta.
 
+`lms` es solo la cuenta de esa consola. Cada servicio se conecta al broker con **su propio usuario**
+—`enrollment`, `learning`, `certification`, `paid-enrollment` y `payment-provider-sim`—, con
+permisos acotados por expresión regular a sus propios exchanges y colas más los ajenos que
+estrictamente necesita. Publicar en el exchange de comandos de la Saga solo lo puede hacer
+`paid-enrollment`.
+
 Esas credenciales, los exchanges, las colas y sus enlaces salen de
 `deploy/rabbitmq/definitions.json`, que el broker importa al arrancar. Es la única fuente de su
 configuración inicial: el Compose no declara usuario ni contraseña por su cuenta. El archivo
 documenta cómo regenerar el hash de la contraseña si quieres cambiarla.
+
+Keycloak importa el realm `lms` desde `deploy/keycloak/realm-lms.json` en cada arranque, y **no
+tiene volumen**: al recrear el contenedor vuelve a quedar exactamente como describe ese archivo, que
+es su única fuente de verdad. Cualquier ajuste se hace ahí, no en la consola. Su panel está en
+<http://localhost:8080> con usuario `admin` y contraseña `admin`.
+
+El realm trae tres roles —`Student`, `Instructor`, `Administrator`— y cuatro usuarios de
+demostración cuyo identificador **es** el que ya usan los datos existentes, de modo que un token
+recién emitido apunta a los cursos y matrículas que ya estaban ahí:
+
+| Usuario | Contraseña | Rol | Identificador |
+|---|---|---|---|
+| `instructor` | `instructor` | `Instructor` | `11111111-1111-1111-1111-111111111111` |
+| `estudiante1` | `estudiante1` | `Student` | `22222222-2222-2222-2222-222222222222` |
+| `estudiante2` | `estudiante2` | `Student` | `99999999-9999-4999-8999-999999999999` |
+| `administrador` | `administrador` | `Administrator` | `33333333-3333-3333-3333-333333333333` |
+
+Son credenciales **de desarrollo**, igual que las contraseñas de PostgreSQL y del broker: existen
+para el recorrido local y no se reutilizan fuera de él.
 
 Los mensajes de la Saga viajan por dos exchanges **topic**, `lms.saga.commands` y `lms.saga.replies`,
 con una routing key por mensaje. Son topic y no fanout porque cada uno transporta varios tipos hacia
@@ -200,11 +229,33 @@ dotnet run --project src/services/certification/Certification.Api --launch-profi
 dotnet run --project src/bff/BffComposition.Api --launch-profile http
 dotnet run --project src/services/paid-enrollment/PaidEnrollment.Api --launch-profile http
 dotnet run --project src/services/payment-provider-sim/PaymentProviderSim.Worker --launch-profile http
+dotnet run --project src/gateway/Gateway.Api --launch-profile http
 ```
 
-Escuchan en `http://localhost:5195` a `http://localhost:5201`, con
+Escuchan en `http://localhost:5195` a `http://localhost:5202`, con
 `ASPNETCORE_ENVIRONMENT=Development`. El BFF solo hace falta para la vista compuesta, y las dos
-últimas unidades solo para comprar acceso a un curso; el flujo gratuito funciona sin ellas.
+unidades de pago solo para comprar acceso a un curso; el flujo gratuito funciona sin ellas.
+
+Dos de ellas necesitan el secreto de su cuenta de servicio y **no arrancan sin él**, porque no se
+versiona en el repositorio:
+
+```bash
+export Keycloak__ClientSecret=certification-svc-dev-secret
+dotnet run --project src/services/certification/Certification.Api --launch-profile http
+
+export Services__Enrollment__ClientSecret=paid-enrollment-svc-dev-secret
+dotnet run --project src/services/paid-enrollment/PaidEnrollment.Api --launch-profile http
+```
+
+Certification lo usa para preguntar a Keycloak el nombre visible del estudiante antes de emitir un
+certificado; `paid-enrollment`, para consultar en Enrollment si el estudiante ya tenía acceso antes
+de cobrarle. En ambos casos es una cuenta de servicio con un único permiso, no una identidad de
+persona.
+
+El gateway es la entrada única del sistema: expone en `5202` las rutas declaradas en su
+`appsettings.json` y **nada más**. Una ruta que no esté en esa lista responde `404` aunque exista en
+el servicio de detrás, y lo mismo ocurre con un verbo no declarado. Los puertos de cada servicio
+siguen abiertos en local, así que los ejemplos de más abajo funcionan por cualquiera de las dos vías.
 
 El simulador de pagos no tiene API de negocio: solo responde `GET /health`. Todo lo que hace entra y
 sale por el broker, y es deliberado — un endpoint técnico para forzar fallos habría convertido un
@@ -212,7 +263,7 @@ proveedor de pagos en una consola de pruebas.
 
 Enrollment, Learning y Certification necesitan saber dónde está Course Authoring. Lo leen de
 `Services:CourseAuthoring:BaseUrl`, que en Development apunta a `http://localhost:5195`, y **ninguno
-de los tres arranca si falta**. Puedes ajustar la llamada sin recompilar:
+de los tres arranca si falta**. La llamada se ajusta sin recompilar:
 
 | Ajuste | Por defecto | Para qué |
 |---|---|---|
@@ -266,7 +317,9 @@ se emite: nunca se inventa un nombre.
 | Documento OpenAPI | `:5195/openapi/v1.json` | `:5196/openapi/v1.json` | `:5197/openapi/v1.json` | `:5198/openapi/v1.json` | `:5199/openapi/v1.json` | `:5200/openapi/v1.json` | solo Development |
 | Estado del servicio | `:5195/health` | `:5196/health` | `:5197/health` | `:5198/health` | `:5199/health` | `:5200/health` | siempre |
 
-El simulador de pagos solo tiene `:5201/health`: no expone documentación porque no expone API.
+El simulador de pagos solo tiene `:5201/health`: no expone documentación porque no expone API. El
+gateway tiene el suyo en `:5202/health`, que comprueba que el proceso vive, no el estado de sus
+destinos; su documentación no existe porque no tiene API propia.
 
 ```bash
 curl http://localhost:5195/health          # Healthy
@@ -276,6 +329,7 @@ curl http://localhost:5198/health          # Healthy
 curl http://localhost:5199/health          # Healthy
 curl http://localhost:5200/health          # Healthy
 curl http://localhost:5201/health          # Healthy
+curl http://localhost:5202/health          # Healthy
 ```
 
 `/health` comprueba únicamente la conectividad de cada servicio con su propia base, no el estado del
@@ -284,7 +338,40 @@ El `/health` de Enrollment, Learning y Certification tampoco cambia porque Cours
 RabbitMQ estén caídos: la salud de una dependencia no es la salud propia. El del BFF no tiene nada
 que comprobar —no tiene base ni broker— y responde `Healthy` incluso con sus dos fuentes apagadas.
 
-### 5. Detener el entorno
+### 5. Obtener un token
+
+Todo lo que no sea el catálogo, el contenido publicado de un curso o la verificación de un
+certificado exige un token. Se obtiene de Keycloak con el flujo de código de autorización y PKCE,
+contra el cliente público `lms-spa`, que es lo que hace la colección de Postman: al pulsar **Get New
+Access Token** abre el formulario de Keycloak, se entra con uno de los cuatro usuarios de
+demostración y el token queda guardado para las peticiones siguientes.
+
+| Parámetro | Valor |
+|---|---|
+| Auth URL | `http://localhost:8080/realms/lms/protocol/openid-connect/auth` |
+| Access Token URL | `http://localhost:8080/realms/lms/protocol/openid-connect/token` |
+| Client ID | `lms-spa` |
+| Code Challenge Method | `S256` |
+| Callback URL | `https://oauth.pstmn.io/v1/callback` |
+
+El token dura quince minutos y lleva las seis audiencias de las API. Cada servicio valida **solo la
+suya**, además de la firma, el emisor y la expiración, así que un token no deja de comprobarse por
+haber pasado ya por el gateway.
+
+Para los ejemplos de más abajo, guarda el token en una variable:
+
+```bash
+TOKEN_INSTRUCTOR="<token del usuario instructor>"
+TOKEN_ESTUDIANTE="<token del usuario estudiante1>"
+TOKEN_ESTUDIANTE2="<token del usuario estudiante2>"
+TOKEN_ADMIN="<token del usuario administrador>"
+```
+
+El actor de cada petición sale **siempre** del claim `sub` del token. No hay forma de decir «actúo
+como este otro estudiante»: el cuerpo, la ruta y las cabeceras no pueden cambiarlo, y el gateway
+elimina de toda petición entrante las cabeceras de identidad que existían antes.
+
+### 6. Detener el entorno
 
 ```bash
 docker compose down       # conserva los datos
@@ -298,8 +385,8 @@ como `application/problem+json`.
 
 ### Course Authoring
 
-Los endpoints de autoría exigen la cabecera `X-Instructor-Id` (un GUID); los de catálogo son
-públicos.
+Los endpoints de autoría exigen un token con el rol `Instructor`; los de catálogo son públicos y no
+piden nada.
 
 | Método y ruta | Qué hace |
 |---|---|
@@ -315,7 +402,8 @@ públicos.
 
 ### Enrollment
 
-Las tres rutas exigen la cabecera `X-Student-Id` (un GUID).
+Las tres rutas exigen un token con el rol `Student`. El estudiante sale del claim `sub`: el cuerpo
+de la petición solo lleva `courseId`.
 
 | Método y ruta | Qué hace |
 |---|---|
@@ -329,7 +417,7 @@ Códigos de estado de `POST /api/v1/enrollments`:
 |---|---|
 | `201` | la matrícula se ha creado en esta petición; incluye cabecera `Location` |
 | `200` | ya existía una matrícula equivalente; devuelve la misma y no incluye `Location` |
-| `400` | falta `courseId`, no es un GUID o es todo ceros; o la cabecera `X-Student-Id` falta, no es un GUID o es todo ceros |
+| `400` | falta `courseId`, no es un GUID o es todo ceros |
 | `422` | el curso no es matriculable: no existe o no está publicado |
 | `503` | no se ha podido verificar si el curso es matriculable; incluye cabecera `Retry-After` |
 
@@ -342,8 +430,8 @@ sin publicar no existe, y Enrollment no inventa una distinción que el catálogo
 
 ### Learning
 
-Las cuatro rutas exigen la cabecera `X-Student-Id` (un GUID) y operan siempre sobre el progreso de
-ese estudiante: no hay forma de leer ni de tocar el de otro.
+Las cuatro rutas exigen un token con el rol `Student` y operan siempre sobre el progreso del
+estudiante del token: no hay forma de leer ni de tocar el de otro.
 
 El progreso lo crea Learning al recibir el mensaje de matrícula, y es su única forma de nacer:
 ninguna de estas rutas lo crea. Mientras el mensaje no haya llegado, todas responden `404`.
@@ -375,7 +463,7 @@ Códigos de estado de las dos escrituras:
 | Código | Cuándo |
 |---|---|
 | `200` | la escritura se ha aplicado, o no ha cambiado nada porque ya estaba hecha |
-| `400` | `X-Student-Id` falta, no es un GUID o es todo ceros; `courseId` de la ruta todo ceros; `lessonId` falta, no es un GUID o es todo ceros; `status` distinto de los dos valores admitidos |
+| `400` | `courseId` de la ruta todo ceros; `lessonId` falta, no es un GUID o es todo ceros; `status` distinto de los dos valores admitidos |
 | `404` | el estudiante no tiene progreso en ese curso: al marcar una lección, al confirmar la finalización o al consultarlo |
 | `422` | el curso no está publicado; la lección no pertenece al contenido publicado; confirmar sin haber completado todas las lecciones |
 | `503` | no se ha podido saber cuáles son las lecciones publicadas; incluye cabecera `Retry-After` |
@@ -399,7 +487,7 @@ comunica el hecho y Certification consigue resolver el nombre del estudiante y e
 
 | Método y ruta | Acceso | Qué hace |
 |---|---|---|
-| `GET /api/v1/certificates/{certificateId}` | **público, sin cabecera** | verifica un certificado |
+| `GET /api/v1/certificates/{certificateId}` | **público, sin token** | verifica un certificado |
 | `GET /api/v1/me/certificates` | propietario | los certificados del estudiante |
 | `GET /api/v1/me/certificates/{certificateId}` | propietario | el detalle de uno propio |
 
@@ -416,9 +504,9 @@ No incluye el identificador del estudiante ni el del curso ni la fecha de emisi�
 necesita nada de eso. Un `certificateId` que no existe devuelve `404`, no un `200` con `valid: false`:
 sobre un identificador inexistente no se puede afirmar nada.
 
-Las dos rutas del propietario exigen `X-Student-Id` y devuelven la vista completa, con `studentId`,
-`courseId` e `issuedAt`. Pedir el detalle de un certificado de otro estudiante devuelve `404`, no
-`403`: no se confirma siquiera que exista.
+Las dos rutas del propietario exigen un token con el rol `Student` y devuelven la vista completa,
+con `studentId`, `courseId` e `issuedAt`. Pedir el detalle de un certificado de otro estudiante
+devuelve `404`, no `403`: no se confirma siquiera que exista.
 
 `studentName` y `courseTitle` quedan congelados en el momento de emitir. Si el instructor renombra el
 curso después, el certificado sigue diciendo lo que decía el día que se emitió. `completedAt` es la
@@ -428,48 +516,49 @@ propietario.
 Flujo completo — publicar un curso, matricularse, avanzar hasta finalizarlo y obtener el certificado:
 
 ```bash
-INSTRUCTOR="11111111-1111-1111-1111-111111111111"
-STUDENT="22222222-2222-2222-2222-222222222222"
+# Tokens obtenidos en el paso 5. El identificador del actor sale del claim sub
+TOKEN_INSTRUCTOR="<token del usuario instructor>"
+TOKEN_ESTUDIANTE="<token del usuario estudiante1>"
 
 # 1. Crear el curso en Course Authoring. Devuelve 201 con su id
 curl -i -X POST http://localhost:5195/api/v1/courses \
-  -H "X-Instructor-Id: $INSTRUCTOR" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_INSTRUCTOR" -H "Content-Type: application/json" \
   -d '{"title":"Microservicios con .NET 10"}'
 
 COURSE="<id devuelto>"
 
 # 2. Agregar dos lecciones y publicar. Publicar exige al menos una leccion
 curl -i -X POST http://localhost:5195/api/v1/courses/$COURSE/lessons \
-  -H "X-Instructor-Id: $INSTRUCTOR" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_INSTRUCTOR" -H "Content-Type: application/json" \
   -d '{"title":"Introduccion","description":"Que es un microservicio","videoUrl":"https://videos.example.com/1.mp4"}'
 
 curl -i -X POST http://localhost:5195/api/v1/courses/$COURSE/lessons \
-  -H "X-Instructor-Id: $INSTRUCTOR" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_INSTRUCTOR" -H "Content-Type: application/json" \
   -d '{"title":"Contextos","description":"Como se reparte el dominio","videoUrl":"https://videos.example.com/2.mp4"}'
 
 curl -i -X POST http://localhost:5195/api/v1/courses/$COURSE/publish \
-  -H "X-Instructor-Id: $INSTRUCTOR"
+  -H "Authorization: Bearer $TOKEN_INSTRUCTOR"
 
 # 3. Matricularse. Devuelve 201 y Location: /api/v1/me/enrollments/$COURSE
 curl -i -X POST http://localhost:5196/api/v1/enrollments \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"courseId\":\"$COURSE\"}"
 
 # 4. Repetir la misma peticion. Devuelve 200, el mismo id y sin cabecera Location
 curl -i -X POST http://localhost:5196/api/v1/enrollments \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"courseId\":\"$COURSE\"}"
 
 # 5. Consultar las matriculas propias
-curl -s http://localhost:5196/api/v1/me/enrollments -H "X-Student-Id: $STUDENT"
-curl -s http://localhost:5196/api/v1/me/enrollments/$COURSE -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5196/api/v1/me/enrollments -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
+curl -s http://localhost:5196/api/v1/me/enrollments/$COURSE -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 
 # 5b. Consultar el progreso enseguida: todavia 404, el mensaje esta en camino
-curl -i http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+curl -i http://localhost:5197/api/v1/me/course-progress/$COURSE -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # HTTP/1.1 404 Not Found
 
 # 5c. Repetir hasta que aparezca. Suele tardar unos segundos
-curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # {"studentId":"...","courseId":"...","status":"InProgress","startedAt":"...","completedAt":null,
 #  "completedLessonIds":[]}
 
@@ -481,29 +570,29 @@ LESSON2="<segundo id devuelto>"
 
 # 7. Marcar la primera leccion. Devuelve 200 con status "InProgress" y completedAt null
 curl -i -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/completed-lessons \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"lessonId\":\"$LESSON1\"}"
 
 # 8. Marcar la segunda. Al completar el contenido publicado, la finalizacion se sella aqui mismo:
 #    status "Completed" y completedAt con fecha. No hace falta llamar a /completion
 curl -i -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/completed-lessons \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"lessonId\":\"$LESSON2\"}"
 
 # 9. Repetir el marcado. Devuelve 200 con el mismo cuerpo, el mismo completedAt y sin escribir nada
 curl -i -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/completed-lessons \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"lessonId\":\"$LESSON2\"}"
 
 # 10. Consultar el progreso propio, entero y filtrado por estado.
 #     Devuelven percentage 100 y la lista de lecciones completadas
-curl -s http://localhost:5197/api/v1/me/course-progress -H "X-Student-Id: $STUDENT"
-curl -s "http://localhost:5197/api/v1/me/course-progress?status=Completed" -H "X-Student-Id: $STUDENT"
-curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5197/api/v1/me/course-progress -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
+curl -s "http://localhost:5197/api/v1/me/course-progress?status=Completed" -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 
 # 11. Esperar unos segundos y pedir los certificados propios. Al principio la lista
 #     esta vacia: el certificado tarda un momento en emitirse
-curl -s http://localhost:5198/api/v1/me/certificates -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5198/api/v1/me/certificates -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # [{"certificateId":"...","courseId":"...","courseTitle":"Microservicios con .NET 10",
 #   "completedAt":"...","issuedAt":"..."}]
 
@@ -515,11 +604,11 @@ curl -s http://localhost:5198/api/v1/certificates/$CERT
 #  "completedAt":"...","issuer":"LMS"}
 
 # 13. Ver el detalle propio, con studentId, courseId e issuedAt
-curl -s http://localhost:5198/api/v1/me/certificates/$CERT -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5198/api/v1/me/certificates/$CERT -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 
 # 14. Pedir ese mismo certificado como otro estudiante. Devuelve 404, no 403
 curl -i http://localhost:5198/api/v1/me/certificates/$CERT \
-  -H "X-Student-Id: 99999999-9999-4999-8999-999999999999"
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE2"
 ```
 
 Caso degradado — con Course Authoring apagado, ni se concede una matrícula nueva ni se registra
@@ -528,7 +617,7 @@ ninguna lección:
 ```bash
 # Detener el proceso de Course Authoring (Ctrl+C en su terminal) y matricularse en otro curso
 curl -i -X POST http://localhost:5196/api/v1/enrollments \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d '{"courseId":"44444444-4444-4444-4444-444444444444"}'
 
 # HTTP/1.1 503 Service Unavailable
@@ -536,7 +625,7 @@ curl -i -X POST http://localhost:5196/api/v1/enrollments \
 
 # Marcar una leccion del curso publicado antes, con Course Authoring todavia apagado
 curl -i -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/completed-lessons \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"lessonId\":\"$LESSON1\"}"
 
 # HTTP/1.1 503 Service Unavailable
@@ -556,18 +645,18 @@ concreto, incluido marcar una lección:
 
 ```bash
 curl -i -X POST http://localhost:5196/api/v1/enrollments \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"courseId\":\"$COURSE\"}"
 # HTTP/1.1 201 Created
 
 curl -i -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/completed-lessons \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"lessonId\":\"$LESSON1\"}"
 # HTTP/1.1 404 Not Found     <- el mensaje aun no ha llegado
 
 # Esperar unos segundos y repetir la misma peticion
 curl -i -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/completed-lessons \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"lessonId\":\"$LESSON1\"}"
 # HTTP/1.1 200 OK
 ```
@@ -582,16 +671,16 @@ actualiza a partir de las escrituras, unos segundos después. Por eso puede pasa
 ```bash
 # Marcar una leccion. El POST responde ya con el estado nuevo
 curl -s -X POST http://localhost:5197/api/v1/me/course-progress/$COURSE/completed-lessons \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"lessonId\":\"$LESSON1\"}"
 # {"status":"InProgress","completedLessonCount":1,"totalLessonCount":3,"percentage":33.33, ...}
 
 # Consultarlo enseguida: todavia puede devolver el estado anterior
-curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # {"completedLessonCount":0,"totalLessonCount":null,"percentage":null, ...}
 
 # Repetir unos segundos despues: ya coincide
-curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # {"completedLessonCount":1,"totalLessonCount":3,"percentage":33.33, ...}
 ```
 
@@ -606,7 +695,7 @@ había finalizado puede completar las nuevas. El recuento sube y el total tambi�
 finalización no se toca y el porcentaje se queda en `100`:
 
 ```bash
-curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # {"status":"Completed","completedAt":"2026-08-17T07:31:55+00:00",
 #  "completedLessonCount":4,"totalLessonCount":5,"percentage":100}
 ```
@@ -622,11 +711,11 @@ estudiante. Mientras falte cualquiera de los dos, el trabajo queda anotado y se 
 
 ```bash
 # Con Course Authoring apagado, finalizar un curso y pedir los certificados propios
-curl -s http://localhost:5198/api/v1/me/certificates -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5198/api/v1/me/certificates -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # []      <- el trabajo esta anotado, pero todavia no hay nada que emitir
 
 # Arrancar Course Authoring y esperar unos segundos
-curl -s http://localhost:5198/api/v1/me/certificates -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5198/api/v1/me/certificates -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # [{"certificateId":"...","courseTitle":"Microservicios con .NET 10", ...}]
 ```
 
@@ -648,15 +737,15 @@ curl -i http://localhost:5196/health
 # HTTP/1.1 200 OK    <- que el broker este caido no enferma al servicio
 
 curl -i -X POST http://localhost:5196/api/v1/enrollments \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"courseId\":\"$COURSE\"}"
 # HTTP/1.1 201 Created    <- la matricula existe
 
-curl -i http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+curl -i http://localhost:5197/api/v1/me/course-progress/$COURSE -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # HTTP/1.1 404 Not Found  <- y seguira asi mientras el broker no vuelva
 ```
 
-El mensaje queda guardado en la base de Enrollment, esperando. Se puede ver:
+El mensaje queda guardado en la base de Enrollment, esperando:
 
 ```bash
 docker exec -e PGPASSWORD=enrollment_dev lms-postgres \
@@ -670,11 +759,11 @@ Al volver a arrancar el broker, el progreso aparece solo, sin repetir ninguna pe
 docker compose start rabbitmq
 
 # Esperar a que el contenedor este healthy y consultar de nuevo
-curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # {"status":"InProgress","startedAt":"...", ...}
 ```
 
-Fíjate en el `startedAt`: es el instante en que se concedió la matrícula, no aquel en que el broker
+El `startedAt` que aparece es el instante en que se concedió la matrícula, no aquel en que el broker
 se recuperó.
 
 ### Matricularse sin haber arrancado Learning
@@ -685,7 +774,7 @@ mensaje espera en la cola:
 ```bash
 # Detener Learning (Ctrl+C en su terminal) y matricularse en otro curso publicado
 curl -i -X POST http://localhost:5196/api/v1/enrollments \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"courseId\":\"$OTRO_COURSE\"}"
 # HTTP/1.1 201 Created
 ```
@@ -696,16 +785,13 @@ Al arrancar Learning otra vez, lo consume y el progreso aparece:
 ```bash
 dotnet run --project src/services/learning/Learning.Api --launch-profile http
 
-curl -s http://localhost:5197/api/v1/me/course-progress/$OTRO_COURSE -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5197/api/v1/me/course-progress/$OTRO_COURSE -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 ```
 
-> **`X-Instructor-Id` y `X-Student-Id` no son autenticación.** Son un mecanismo temporal para poder
-> ejecutar el proyecto en Development: cualquiera puede escribir cualquier GUID y actuar como esa
-> persona. No expongas estos servicios fuera de tu máquina.
-
-> **El usuario `lms` del broker es compartido y tiene permisos amplios.** Vale para Development y
-> nada más: los dos servicios lo usan, y puede configurar, escribir y leer cualquier cosa. Un usuario
-> por servicio con permisos mínimos es trabajo pendiente.
+> **Todo viaja sin cifrar y el realm es de desarrollo.** Keycloak corre en HTTP, con `sslRequired`
+> desactivado y contraseñas de demostración versionadas en `deploy/keycloak/realm-lms.json`. Los
+> tokens son válidos, pero el transporte no protege nada: no expongas estos servicios fuera de tu
+> máquina.
 
 > **Las llamadas a Course Authoring llevan timeout, reintento y cortacircuitos.** Enrollment,
 > Learning y Certification aplican un pipeline explícito —timeout total, hasta dos reintentos con
@@ -721,7 +807,7 @@ curl -s http://localhost:5197/api/v1/me/course-progress/$OTRO_COURSE -H "X-Stude
 
 ## Compra de acceso a un curso
 
-Necesita las siete unidades arrancadas. El estudiante pide comprar el acceso, y a partir de ahí el
+Necesita todas las unidades arrancadas. El estudiante pide comprar el acceso, y a partir de ahí el
 proceso avanza solo: Paid Enrollment comprueba que no tenga ya acceso, autoriza el pago, lo captura,
 pide a Enrollment la matrícula y confirma la compra.
 
@@ -751,31 +837,31 @@ STUDENT=44444444-4444-4444-4444-444444444444
 COURSE=<id-de-un-curso-publicado-con-precio>
 
 curl -i -X POST http://localhost:5200/api/v1/purchases \
-  -H "X-Student-Id: $STUDENT" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN_ESTUDIANTE" -H "Content-Type: application/json" \
   -d "{\"courseId\":\"$COURSE\"}"
 ```
 
 Responde **`202 Accepted`** con `Location` y `status: "Started"`. El `202` no significa que el pago
-se haya realizado ni que la matrícula exista: significa que la compra se aceptó para procesar. Ese es
-el punto del ejercicio.
+se haya realizado ni que la matrícula exista: significa que la compra se aceptó para procesar, y nada
+más.
 
-Consulta el estado tantas veces como quieras:
+El estado se consulta por su identificador, tantas veces como haga falta:
 
 ```bash
-curl -s http://localhost:5200/api/v1/purchases/<purchaseId> -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5200/api/v1/purchases/<purchaseId> -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 ```
 
-Verás pasar los estados intermedios —`CheckingAccess`, `AuthorizingPayment`, `PaymentAuthorized`,
-`CapturingPayment`, `PaymentCaptured`, `GrantingEnrollment`, `EnrollmentGranted`— hasta `Confirmed`.
-No están escondidos a propósito: los diecisiete estados son consultables, porque una Saga cuyos
-estados no se ven no se puede explicar.
+La compra atraviesa `CheckingAccess`, `AuthorizingPayment`, `PaymentAuthorized`, `CapturingPayment`,
+`PaymentCaptured`, `GrantingEnrollment` y `EnrollmentGranted` hasta llegar a `Confirmed`. Los
+diecisiete estados son consultables a propósito: una Saga cuyos estados no se ven desde fuera no hay
+forma de diagnosticarla cuando se queda a medias.
 
 Unos segundos después, el resto del sistema se ha enterado:
 
 ```bash
-curl -s http://localhost:5196/api/v1/me/enrollments/$COURSE   -H "X-Student-Id: $STUDENT"
-curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "X-Student-Id: $STUDENT"
-curl -s http://localhost:5199/api/v1/me/courses-in-progress    -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5196/api/v1/me/enrollments/$COURSE   -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
+curl -s http://localhost:5197/api/v1/me/course-progress/$COURSE -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
+curl -s http://localhost:5199/api/v1/me/courses-in-progress    -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 ```
 
 La matrícula aparece con `"type": "Paid"`, y el progreso lo creó el mismo mensaje de siempre:
@@ -803,7 +889,7 @@ resultado, no un desconocido.
 
 **Compensación por reembolso.** Pon precio a un curso que esté **en Borrador** y cómpralo. El pago se
 autoriza y se captura, Enrollment rechaza la concesión porque el curso no está publicado, y la compra
-termina en `Compensated(PaymentRefunded)`. En `payments` verás `captured_at` y `refunded_at`, y en
+termina en `Compensated(PaymentRefunded)`. En `payments` quedan `captured_at` y `refunded_at`, y en
 `enrollments` no habrá ninguna fila nueva.
 
 **Compensación por anulación.** Con el importe `19.00`, la captura falla y no llega a cobrar. La
@@ -837,7 +923,7 @@ operador:
 
 ```bash
 curl -i -X POST http://localhost:5200/api/v1/purchases/<purchaseId>/resolutions \
-  -H "X-Operator-Id: 99999999-9999-9999-9999-999999999999" \
+  -H "Authorization: Bearer $TOKEN_ADMIN" \
   -H "Content-Type: application/json" \
   -d '{"resolution":"CloseWithoutAutomaticAction","evidence":"El proveedor no responde"}'
 ```
@@ -908,14 +994,15 @@ GET /api/v1/me/courses-in-progress?status=InProgress
 GET /api/v1/me/courses-in-progress?status=Completed
 ```
 
-Cabecera obligatoria `X-Student-Id`. Sin `status` devuelve los cursos en progreso. El filtro no
+Exige un token con el rol `Student`, que el BFF valida y propaga hacia Learning. Sin `status`
+devuelve los cursos en progreso. El filtro no
 distingue mayúsculas —`?status=completed` es lo mismo que `?status=Completed`—, igual que Learning;
 cualquier otro valor, incluido el vacío, responde `400` sin llegar a llamar a Learning.
 
 Continuando el recorrido de más arriba, con los cinco procesos arriba:
 
 ```bash
-curl -s http://localhost:5199/api/v1/me/courses-in-progress -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5199/api/v1/me/courses-in-progress -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # {"items":[{"courseId":"...","courseTitle":"Microservicios con .NET 10","lessonCount":2,
 #            "status":"InProgress","startedAt":"...","completedAt":null,
 #            "completedLessonCount":0,"percentage":null}],
@@ -930,7 +1017,7 @@ ningún campo: `percentage` es el de Learning y `lessonCount` el del catálogo. 
 
 ```bash
 # Deten el proceso de Course Authoring y repite la misma peticion
-curl -s http://localhost:5199/api/v1/me/courses-in-progress -H "X-Student-Id: $STUDENT"
+curl -s http://localhost:5199/api/v1/me/courses-in-progress -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # {"items":[{"courseId":"...","courseTitle":null,"lessonCount":null,
 #            "status":"InProgress","startedAt":"...","completedAt":null,
 #            "completedLessonCount":0,"percentage":null}],
@@ -947,7 +1034,7 @@ Course Authoring, la petición siguiente vuelve a `isPartial: false` sin reinici
 ### Dependencia esencial: apaga solo Learning
 
 ```bash
-curl -i -s http://localhost:5199/api/v1/me/courses-in-progress -H "X-Student-Id: $STUDENT"
+curl -i -s http://localhost:5199/api/v1/me/courses-in-progress -H "Authorization: Bearer $TOKEN_ESTUDIANTE"
 # HTTP/1.1 503 Service Unavailable
 # Retry-After: 5
 # Content-Type: application/problem+json
@@ -972,14 +1059,14 @@ Medido en este repositorio, con `curl -o /dev/null -s -w "%{time_total}\n"`:
 | Matrícula en un curso inexistente, catálogo arriba | ≈ 0,1 s | `422`, sin reintentos |
 
 Cada dependencia termina dentro de su `TotalTimeoutSeconds` y ninguna petición queda colgada. El
-contraste entre los ≈ 0,1 s del `422` y los ≈ 3,0 s de la indisponibilidad es la prueba de que un
-fallo funcional no se reintenta y uno transitorio sí.
+contraste entre los ≈ 0,1 s del `422` y los ≈ 3,0 s de la indisponibilidad separa el fallo funcional,
+que no se reintenta, del transitorio, que sí.
 
 > **El Circuit Breaker está configurado pero no llega a abrirse deteniendo un proceso.** En Windows,
 > rechazar una conexión contra un puerto muerto tarda ≈ 2 s, así que el timeout total cancela la
 > operación antes de que se acumulen los tres fallos que el breaker necesita, y una cancelación no
 > se contabiliza como fallo. La configuración está puesta y el orden del pipeline es el correcto;
-> demostrarlo abriéndose exige una dependencia que falle rápido, y es trabajo pendiente.
+> verlo abrirse exige una dependencia que falle rápido, y eso sigue pendiente.
 
 > **El `/health` del BFF no consulta a Learning ni a Course Authoring.** Responde `Healthy` con las
 > dos apagadas, y es deliberado: un componente cuyo valor es responder degradado no debe declararse
@@ -1012,8 +1099,3 @@ usuarios de servicio puede conectarse a las bases de los otros dos.
 La colisión de concurrencia se provoca de verdad: una conexión independiente escribe la fila
 ganadora entre la lectura y el guardado de la petición, y la prueba comprueba que la petición
 termina en `200` con el mismo número de filas que si no se hubiera repetido.
-
-## Documentación
-
-El diseño de la plataforma (contextos, decisiones técnicas y diagramas) está en
-[`docs/`](./docs/arquitectura/vision-general.md).

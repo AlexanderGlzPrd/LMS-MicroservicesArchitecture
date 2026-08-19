@@ -163,6 +163,7 @@ public static class DependencyInjection
                         host.Password(rabbitMq.Password);
                     });
 
+                configurator.OverrideDefaultBusEndpointQueueName("lms.paid-enrollment.bus");
                 ConfigureCommand<AuthorizePayment>(configurator);
                 ConfigureCommand<CapturePayment>(configurator);
                 ConfigureCommand<VoidAuthorization>(configurator);

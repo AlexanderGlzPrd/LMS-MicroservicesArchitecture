@@ -69,6 +69,7 @@ public static class DependencyInjection
                         host.Password(rabbitMq.Password);
                     });
 
+                configurator.OverrideDefaultBusEndpointQueueName("lms.enrollment.bus");
                 configurator.Message<StudentEnrolled>(
                     message => message.SetEntityName("lms.enrollment"));
 

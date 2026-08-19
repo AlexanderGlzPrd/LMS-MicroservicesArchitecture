@@ -70,6 +70,7 @@ public static class DependencyInjection
                         host.Password(rabbitMq.Password);
                     });
 
+                configurator.OverrideDefaultBusEndpointQueueName("lms.certification.bus");
                 configurator.ReceiveEndpoint("lms.certification.course-completed", endpoint =>
                 {
                     endpoint.ConfigureConsumeTopology = false;

@@ -7,7 +7,37 @@
       "name": "lms",
       "password_hash": "+U99huijY94bBbmoHvD2j55IEt71CR2xM5ptr8u1L1VL36yX",
       "hashing_algorithm": "rabbit_password_hashing_sha256",
-      "tags": ["management"]
+      "tags": ["administrator"]
+    },
+    {
+      "name": "enrollment",
+      "password_hash": "kI2hALQyENdqJ4Y9Dzjf/PbTQegcTpPk8vbPphxAEVFyZI9C",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    },
+    {
+      "name": "learning",
+      "password_hash": "kI2hAEAj5HsA6wf60eoFytlcVVP8xbrlaLauS/3PAExVB/OA",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    },
+    {
+      "name": "certification",
+      "password_hash": "kI2hAASI4cYzIvu+775eab2qNi5ZNIMcra9Mfe8N3bik1TUP",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    },
+    {
+      "name": "paid-enrollment",
+      "password_hash": "kI2hAOOiFyeryxrYLmYGwbwqnf+COyS9u/QQ2GCE7LMPZmiM",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    },
+    {
+      "name": "payment-provider-sim",
+      "password_hash": "kI2hAOus3Smcf6K2Zo/mgr8rmS1aA5jXon8ABxjHip2k9f6d",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
     }
   ],
   "permissions": [
@@ -17,6 +47,41 @@
       "configure": ".*",
       "write": ".*",
       "read": ".*"
+    },
+    {
+      "user": "enrollment",
+      "vhost": "/",
+      "configure": "^(lms\\.enrollment(\\..*)?|lms\\.saga\\.(commands|replies))$",
+      "write": "^(lms\\.enrollment(\\..*)?|lms\\.saga\\.replies)$",
+      "read": "^(lms\\.enrollment(\\..*)?|lms\\.saga\\.commands)$"
+    },
+    {
+      "user": "learning",
+      "vhost": "/",
+      "configure": "^(lms\\.learning(\\..*)?|lms\\.enrollment)$",
+      "write": "^lms\\.learning(\\..*)?$",
+      "read": "^(lms\\.learning(\\..*)?|lms\\.enrollment)$"
+    },
+    {
+      "user": "certification",
+      "vhost": "/",
+      "configure": "^(lms\\.certification(\\..*)?|lms\\.learning)$",
+      "write": "^lms\\.certification(\\..*)?$",
+      "read": "^(lms\\.certification(\\..*)?|lms\\.learning)$"
+    },
+    {
+      "user": "paid-enrollment",
+      "vhost": "/",
+      "configure": "^(lms\\.paid-enrollment(\\..*)?|lms\\.saga\\.(commands|replies))$",
+      "write": "^(lms\\.paid-enrollment(\\..*)?|lms\\.saga\\.commands)$",
+      "read": "^(lms\\.paid-enrollment(\\..*)?|lms\\.saga\\.replies)$"
+    },
+    {
+      "user": "payment-provider-sim",
+      "vhost": "/",
+      "configure": "^(lms\\.payment-provider-sim(\\..*)?|lms\\.saga\\.(commands|replies))$",
+      "write": "^(lms\\.payment-provider-sim(\\..*)?|lms\\.saga\\.replies)$",
+      "read": "^(lms\\.payment-provider-sim(\\..*)?|lms\\.saga\\.commands)$"
     }
   ],
   "exchanges": [

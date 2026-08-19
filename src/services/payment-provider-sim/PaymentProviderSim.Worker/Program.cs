@@ -63,6 +63,7 @@ builder.Services.AddMassTransit(bus =>
                 host.Password(rabbitMq.Password);
             });
 
+        configurator.OverrideDefaultBusEndpointQueueName("lms.payment-provider-sim.bus");
         ConfigureReply<PaymentAuthorized>(configurator);
         ConfigureReply<PaymentDeclined>(configurator);
         ConfigureReply<PaymentCaptured>(configurator);
