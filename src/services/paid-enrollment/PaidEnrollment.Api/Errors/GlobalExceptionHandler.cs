@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using PaidEnrollment.Api.Actor;
+using PaidEnrollment.Application.Abstractions.Exceptions;
 namespace PaidEnrollment.Api.Errors;
 internal sealed class GlobalExceptionHandler(
     IProblemDetailsService problemDetailsService,
@@ -20,6 +21,31 @@ internal sealed class GlobalExceptionHandler(
             MissingOperatorHeaderException => (
                 StatusCodes.Status400BadRequest,
                 "Operador no identificado",
+                exception.Message),
+
+            PurchaseNotFoundException => (
+                StatusCodes.Status404NotFound,
+                "Compra no encontrada",
+                exception.Message),
+
+            PurchaseClosedForCourseException => (
+                StatusCodes.Status409Conflict,
+                "Compra cerrada para ese curso",
+                exception.Message),
+
+            PurchaseNotUnderManualReviewException => (
+                StatusCodes.Status409Conflict,
+                "Compra fuera de revision manual",
+                exception.Message),
+
+            PurchaseAmountNotConfiguredException => (
+                StatusCodes.Status422UnprocessableEntity,
+                "Curso sin importe configurado",
+                exception.Message),
+
+            ManualResolutionNotApplicableException => (
+                StatusCodes.Status422UnprocessableEntity,
+                "Resolucion no aplicable",
                 exception.Message),
 
             _ => (
