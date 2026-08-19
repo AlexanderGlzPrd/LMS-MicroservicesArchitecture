@@ -38,6 +38,7 @@ public static class ObservabilityExtensions
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
                 .AddRuntimeInstrumentation()
+                .AddMeter(serviceName)
                 .AddMeter("MassTransit")
                 .AddOtlpExporter());
 

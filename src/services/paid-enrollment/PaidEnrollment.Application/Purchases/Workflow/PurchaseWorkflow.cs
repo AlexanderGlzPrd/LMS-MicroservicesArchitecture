@@ -7,8 +7,11 @@ public sealed class PurchaseWorkflow(
     IInbox inbox,
     IOutbox outbox,
     IUnitOfWork unitOfWork,
+    ISagaMetrics metrics,
     TimeProvider timeProvider)
 {
+    private string? pendingCompensation;
+
     public Task<ReplyReaction> OnPaymentAuthorizedAsync(
         SagaReply reply,
         DateTimeOffset authorizedAt,
@@ -130,10 +133,14 @@ public sealed class PurchaseWorkflow(
         if (purchase.CapturedAt is null)
         {
             outbox.EnqueueVoidAuthorization(purchase, now);
+
+            pendingCompensation = "void_authorization";
         }
         else
         {
             outbox.EnqueueRefundPayment(purchase, now);
+
+            pendingCompensation = "refund_payment";
         }
 
         purchase.RegisterStepAttempt(now);
@@ -328,6 +335,9 @@ public sealed class PurchaseWorkflow(
         CancellationToken cancellationToken)
     {
         var reaction = ReplyReaction.Applied;
+        var before = purchase.Status;
+
+        pendingCompensation = null;
 
         if (purchase.IsTerminal)
         {
@@ -357,8 +367,28 @@ public sealed class PurchaseWorkflow(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
+        if (purchase.Status != before)
+        {
+            metrics.RecordTransition(before, purchase.Status, Describe(reaction));
+        }
+
+        if (pendingCompensation is not null)
+        {
+            metrics.RecordCompensation(pendingCompensation, "emitted");
+        }
+
         return reaction;
     }
+
+    private static string Describe(ReplyReaction reaction) => reaction switch
+    {
+        ReplyReaction.Applied => "applied",
+        ReplyReaction.Late => "late",
+        ReplyReaction.EvidenceOnly => "evidence_only",
+        ReplyReaction.NotApplicable => "not_applicable",
+        ReplyReaction.AlreadyProcessed => "already_processed",
+        _ => "correlation_mismatch",
+    };
 
     private static void Restore(
         Purchase purchase,

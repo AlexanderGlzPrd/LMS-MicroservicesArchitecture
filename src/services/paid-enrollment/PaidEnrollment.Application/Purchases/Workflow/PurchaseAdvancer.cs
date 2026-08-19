@@ -5,13 +5,20 @@ public sealed class PurchaseAdvancer(
     IUnitOfWork unitOfWork,
     IOutbox outbox,
     IEnrollmentAccess enrollmentAccess,
+    ISagaMetrics metrics,
     TimeProvider timeProvider)
 {
+    private string? pendingCompensation;
+
     public async Task<PurchaseStatus> AdvanceAsync(
         Purchase purchase,
         int maxPreCheckAttempts,
         CancellationToken cancellationToken)
     {
+        var before = purchase.Status;
+
+        pendingCompensation = null;
+
         switch (purchase.Status)
         {
             case PurchaseStatus.Started:
@@ -52,6 +59,16 @@ public sealed class PurchaseAdvancer(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
+        if (purchase.Status != before)
+        {
+            metrics.RecordTransition(before, purchase.Status, "applied");
+        }
+
+        if (pendingCompensation is not null)
+        {
+            metrics.RecordCompensation(pendingCompensation, "emitted");
+        }
+
         return purchase.Status;
     }
 
@@ -60,10 +77,14 @@ public sealed class PurchaseAdvancer(
         if (purchase.CapturedAt is null)
         {
             outbox.EnqueueVoidAuthorization(purchase, now);
+
+            pendingCompensation = "void_authorization";
         }
         else
         {
             outbox.EnqueueRefundPayment(purchase, now);
+
+            pendingCompensation = "refund_payment";
         }
 
         purchase.RegisterStepAttempt(now);

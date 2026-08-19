@@ -1,0 +1,94 @@
+{
+  "uid": "lms-mensajeria",
+  "title": "LMS · Mensajeria",
+  "tags": ["lms"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "MassTransit · mensajes consumidos y publicados por segundo",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (rate(messaging_masstransit_consume_ea_total[5m]))",
+          "legendFormat": "consumidos · {{service_name}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (service_name) (rate(messaging_masstransit_send_ea_total[5m]))",
+          "legendFormat": "publicados · {{service_name}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "MassTransit · duracion del consumo p95 por tipo de mensaje",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (messaging_masstransit_message_type, le) (rate(messaging_masstransit_consume_duration_milliseconds_bucket[5m])))",
+          "legendFormat": "{{messaging_masstransit_message_type}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "MassTransit · fallos y reintentos por segundo",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name, messaging_masstransit_message_type) (rate(messaging_masstransit_consume_fault_ea_total[5m]))",
+          "legendFormat": "fallos · {{service_name}} · {{messaging_masstransit_message_type}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (service_name, messaging_masstransit_message_type) (rate(messaging_masstransit_consume_retry_ea_total[5m]))",
+          "legendFormat": "reintentos · {{service_name}} · {{messaging_masstransit_message_type}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Broker · profundidad de cola, por cola",
+      "description": "Del plugin rabbitmq_prometheus, raspado por /metrics/per-object: es la unica fuente que conserva el nombre de la cola.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rabbitmq_queue_messages_ready{queue=~\"lms.*\"}",
+          "legendFormat": "listos · {{queue}}"
+        },
+        {
+          "refId": "B",
+          "expr": "rabbitmq_queue_messages_unacked{queue=~\"lms.*\"}",
+          "legendFormat": "sin reconocer · {{queue}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Broker · consumidores por cola",
+      "description": "Cero consumidores con mensajes listos significa que nadie consume esa cola; consumidores vivos con la cola creciendo significa que el consumidor va lento.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rabbitmq_queue_consumers{queue=~\"lms.*\"}",
+          "legendFormat": "{{queue}}"
+        }
+      ]
+    }
+  ]
+}

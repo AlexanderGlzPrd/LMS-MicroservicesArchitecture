@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using PaidEnrollment.Application.Purchases.Workflow;
@@ -179,6 +180,14 @@ internal sealed class PaymentReplyConsumer(
 
     private void Report(SagaReply reply, ReplyReaction reaction)
     {
+        using var scope = logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["PurchaseId"] = reply.PurchaseId.Value,
+            ["PaymentId"] = reply.PaymentId.Value,
+            ["MessageId"] = reply.MessageId,
+            ["TraceId"] = Activity.Current?.TraceId.ToString(),
+        });
+
         switch (reaction)
         {
             case ReplyReaction.CorrelationMismatch:
@@ -236,6 +245,9 @@ internal sealed class PaymentReplyConsumer(
         {
             throw new InvalidSagaReplyMessageException(name, "OccurredAt no tiene valor.");
         }
+
+        Activity.Current?.SetTag("lms.purchase.id", purchaseId);
+        Activity.Current?.SetTag("lms.payment.id", paymentId);
 
         return new SagaReply(
             messageId,

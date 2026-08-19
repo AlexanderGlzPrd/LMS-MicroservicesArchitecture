@@ -12,6 +12,7 @@ using PaidEnrollment.Contracts.V1;
 using PaidEnrollment.Infrastructure.Acl;
 using PaidEnrollment.Infrastructure.Identity;
 using PaidEnrollment.Infrastructure.Messaging;
+using PaidEnrollment.Infrastructure.Observability;
 using PaidEnrollment.Infrastructure.Persistence;
 using PaidEnrollment.Infrastructure.Pricing;
 using PaidEnrollment.Infrastructure.Saga;
@@ -39,8 +40,13 @@ public static class DependencyInjection
         string connectionString,
         IConfiguration configuration)
     {
-        services.AddDbContext<PaidEnrollmentDbContext>(options =>
-            options.UseNpgsql(connectionString));
+        services.AddSingleton<PurchaseTraceContextInterceptor>();
+        services.AddSingleton<ISagaMetrics, SagaMetrics>();
+
+        services.AddDbContext<PaidEnrollmentDbContext>((provider, options) =>
+            options
+                .UseNpgsql(connectionString)
+                .AddInterceptors(provider.GetRequiredService<PurchaseTraceContextInterceptor>()));
 
         services.AddScoped<IPurchaseRepository, PurchaseRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();

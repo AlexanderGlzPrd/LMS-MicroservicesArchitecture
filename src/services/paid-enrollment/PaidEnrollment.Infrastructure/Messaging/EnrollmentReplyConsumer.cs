@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Enrollments.Contracts.V1;
 using MassTransit;
 using Microsoft.Extensions.Logging;
@@ -45,6 +46,13 @@ internal sealed class EnrollmentReplyConsumer(
 
     private void Report(EnrollmentReply reply, ReplyReaction reaction)
     {
+        using var scope = logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["PurchaseId"] = reply.PurchaseId.Value,
+            ["MessageId"] = reply.MessageId,
+            ["TraceId"] = Activity.Current?.TraceId.ToString(),
+        });
+
         switch (reaction)
         {
             case ReplyReaction.CorrelationMismatch:
@@ -122,6 +130,8 @@ internal sealed class EnrollmentReplyConsumer(
         {
             throw new InvalidSagaReplyMessageException(name, "OccurredAt no tiene valor.");
         }
+
+        Activity.Current?.SetTag("lms.purchase.id", purchaseId);
 
         return new EnrollmentReply(
             messageId,

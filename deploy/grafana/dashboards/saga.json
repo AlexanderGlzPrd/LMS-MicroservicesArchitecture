@@ -1,0 +1,70 @@
+{
+  "uid": "lms-saga",
+  "title": "LMS · Saga de compra",
+  "tags": ["lms"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Transiciones por segundo, por par de estados",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (from_state, to_state) (rate(lms_saga_transitions_total[5m]))",
+          "legendFormat": "{{from_state}} -> {{to_state}}"
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Transiciones acumuladas por par de estados",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "displayMode": "gradient", "orientation": "horizontal" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (from_state, to_state, result) (lms_saga_transitions_total)",
+          "legendFormat": "{{from_state}} -> {{to_state}} ({{result}})",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Compensaciones por operacion y resultado",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "displayMode": "gradient", "orientation": "horizontal" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (operation, result) (lms_saga_compensations_total)",
+          "legendFormat": "{{operation}} ({{result}})",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Compras vivas por estado",
+      "description": "Entradas menos salidas de cada estado, calculado sobre el contador de transiciones: una compra que entro en un estado y no ha salido sigue viva en el.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "displayMode": "gradient", "orientation": "horizontal" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (estado) (label_replace(sum by (to_state) (lms_saga_transitions_total), \"estado\", \"$1\", \"to_state\", \"(.*)\")) - sum by (estado) (label_replace(sum by (from_state) (lms_saga_transitions_total), \"estado\", \"$1\", \"from_state\", \"(.*)\"))",
+          "legendFormat": "{{estado}}",
+          "instant": true
+        }
+      ]
+    }
+  ]
+}

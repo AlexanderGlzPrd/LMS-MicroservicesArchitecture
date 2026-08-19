@@ -102,12 +102,123 @@ Todos los comandos siguientes se ejecutan desde la raíz del repositorio.
 
 ## Ejecución
 
+Hay dos formas de levantar el sistema. La **recomendada** es Docker Compose: un comando, dieciséis
+contenedores y el esquema aplicado antes de que arranque ninguna API. La segunda —arrancar los ocho
+procesos a mano con `dotnet run`— sigue funcionando igual que siempre y está descrita a partir del
+paso 1.
+
+### Todo el sistema con Docker Compose
+
+```bash
+docker compose build     # la primera vez tarda: nueve imágenes desde cero
+docker compose up -d
+docker compose ps        # quince contenedores en marcha y `lms-migrator` en `exited (0)`
+```
+
+El `.env` versionado fija `COMPOSE_PROFILES=core,payments,observability`, así que `up` levanta el
+stack íntegro. Es un archivo de **desarrollo local**: sus tres secretos son los mismos que ya viajan
+en claro en `deploy/keycloak/realm-lms.json` y no sirven para nada fuera de esta máquina. Para
+personalizar valores sin tocarlo, `.env.local` sigue ignorado por git:
+
+```bash
+docker compose --env-file .env --env-file .env.local up -d
+```
+
+**Perfiles.** Cuatro servicios no tienen perfil y arrancan siempre: `postgres`, `rabbitmq`,
+`keycloak` y `migrator`. El resto se agrupa en tres:
+
+| Perfil | Contenedores | Para qué |
+|---|---|---|
+| `core` | `course-authoring`, `enrollment`, `learning`, `certification`, `bff-composition`, `gateway` | El recorrido gratuito completo |
+| `payments` | `paid-enrollment`, `payment-provider-sim` | La compra de acceso y su Saga |
+| `observability` | `otel-collector`, `jaeger`, `prometheus`, `grafana` | Trazas, métricas y dashboards |
+
+```bash
+docker compose up -d                                   # los dieciséis
+COMPOSE_PROFILES=core docker compose up -d             # infraestructura y flujo gratuito
+COMPOSE_PROFILES=core,payments docker compose up -d    # todo el dominio, sin observabilidad
+```
+
+Ningún servicio depende del arranque de otro perfil, así que cualquiera de las tres combinaciones es
+válida por sí sola. Con `payments` apagado, las rutas de compra del Gateway **siguen declaradas** y
+fallan por destino ausente, no con `404`.
+
+**El migrador.** `lms-migrator` es un contenedor de un solo uso: aplica las seis migraciones en orden
+y termina. Las ocho unidades esperan a que acabe con éxito, así que un esquema a medias no arranca
+nada. Es idempotente: sobre bases al día no hace nada y sale con código 0.
+
+**Puertos**, todos publicados solo en `127.0.0.1`:
+
+| Contenedor | Puerto | Qué es |
+|---|---|---|
+| `lms-gateway` | `5202` | **Entrada única del sistema** |
+| `lms-course-authoring` · `lms-enrollment` · `lms-learning` · `lms-certification` | `5195`–`5198` | Inspección directa de cada API |
+| `lms-bff-composition` · `lms-paid-enrollment` · `lms-payment-provider-sim` | `5199`–`5201` | BFF, Saga y proveedor simulado |
+| `lms-keycloak` | `8080` | Consola y emisión de tokens |
+| `lms-postgres` · `lms-rabbitmq` | `5432` · `5672` y `15672` | Bases y broker, con su consola de gestión |
+| `lms-jaeger` · `lms-prometheus` · `lms-grafana` | `16686` · `9090` · `3000` | Trazas, métricas y dashboards |
+
+El Collector (`4317`, `4318`, `8889`) y el puerto de métricas del broker (`15692`) **no se publican**:
+se usan solo por nombre DNS dentro de la red.
+
+**Observabilidad.** Con el perfil `observability` levantado:
+
+- Trazas en <http://localhost:16686>. Una matrícula, una certificación o una compra completa se ven
+  como **una sola traza**, desde la petición del usuario hasta el último consumidor.
+- Métricas en <http://localhost:9090>, con dos objetivos: el Collector y el broker.
+- Dashboards en <http://localhost:3000> (`admin` / `admin`): salud de los servicios, latencia y
+  errores HTTP, mensajería y Saga. Se aprovisionan solos desde `deploy/grafana/`; **un panel editado
+  a mano no sobrevive** a recrear el contenedor, porque la fuente de verdad es el archivo.
+
+**Reinicio limpio.**
+
+```bash
+docker compose down      # para los contenedores y CONSERVA los tres volúmenes
+docker compose down -v   # DESTRUCTIVO: borra las seis bases, el estado del broker y las series
+```
+
+`down -v` es también el único comando que vuelve a disparar los scripts de `deploy/postgres/init/` y
+la importación de definiciones del broker, que solo corren con el directorio de datos vacío. Después
+hay que rehacer el recorrido completo desde cero.
+
+### Diagnóstico
+
+```bash
+docker compose logs -f gateway              # logs JSON de un servicio
+docker compose logs migrator                # por qué no arranca nada: la migración que falló
+docker compose logs | grep <traceId>        # una interacción entera, a través de los ocho procesos
+```
+
+Cada línea de petición lleva `TraceId`, `SpanId`, `CorrelationId` y `ServiceName` en su ámbito. El
+`X-Correlation-Id` lo genera el Gateway si el cliente no lo envía, lo conserva si lo envía, y lo
+devuelve en la respuesta.
+
+**`X-Correlation-Id` viaja por HTTP y solo por HTTP.** El log de un consumidor de mensajes **no lo
+lleva**, y eso es lo esperado: al cruzar el broker la correlación la sostienen el `TraceId` —continuo
+gracias al contexto persistido en el Outbox—, el `MessageId`, el `CausationId` cuando existe y el
+`PurchaseId`. No lo busques en el log de un consumidor.
+
+Síntomas frecuentes:
+
+| Síntoma | Dónde mirar |
+|---|---|
+| Ninguna unidad arranca | `docker compose logs migrator`: si terminó con error, el esquema está a medias |
+| `401` en todo, con token válido | Keycloak todavía no ha importado el realm o el servicio no ha podido descargar sus claves |
+| Una cola crece sin parar | Panel de mensajería: consumidores a cero significa que nadie consume; consumidores vivos, que van lentos |
+| Una compra parada | Buscar en Jaeger por `lms.purchase.id`, y el estado en `GET /api/v1/purchases/{id}` |
+
+### Ejecución manual con `dotnet run`
+
+Los ocho procesos siguen arrancando desde el host sin ninguna variable adicional más allá de los dos
+secretos de cuenta de servicio. Es la ruta útil para depurar con el IDE: se levanta solo la
+infraestructura en contenedores y el código corre fuera.
+
 ### 1. Levantar PostgreSQL, RabbitMQ y Keycloak
 
 ```bash
-docker compose down -v     # obligatorio si ya tenías el volumen de una versión anterior
-docker compose up -d
-docker compose ps          # esperar STATUS = healthy en los tres contenedores
+docker compose down -v                                  # obligatorio si ya tenías el volumen de una versión anterior
+docker compose up -d postgres rabbitmq keycloak         # solo la infraestructura, sin los ocho procesos
+docker compose ps                                       # esperar STATUS = healthy en los tres contenedores
 ```
 
 Levanta tres contenedores:
@@ -236,8 +347,10 @@ Escuchan en `http://localhost:5195` a `http://localhost:5202`, con
 `ASPNETCORE_ENVIRONMENT=Development`. El BFF solo hace falta para la vista compuesta, y las dos
 unidades de pago solo para comprar acceso a un curso; el flujo gratuito funciona sin ellas.
 
-Dos de ellas necesitan el secreto de su cuenta de servicio y **no arrancan sin él**, porque no se
-versiona en el repositorio:
+Dos de ellas necesitan el secreto de su cuenta de servicio y **no arrancan sin él**. Ese secreto no
+está en ningún `appsettings`, aunque sí viaja en claro —igual que los otros dos de desarrollo— en
+`deploy/keycloak/realm-lms.json` y en el `.env` versionado: son credenciales de esta máquina y de
+nada más, y no deben reutilizarse en ningún entorno accesible desde fuera de ella:
 
 ```bash
 export Keycloak__ClientSecret=certification-svc-dev-secret

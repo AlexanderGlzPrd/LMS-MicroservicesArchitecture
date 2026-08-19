@@ -12,6 +12,10 @@ processors:
     limit_percentage: 80
     spike_limit_percentage: 20
   batch: {}
+  resource/metricas:
+    attributes:
+      - key: service.instance.id
+        action: delete
 
 exporters:
   otlp/jaeger:
@@ -31,5 +35,5 @@ service:
       exporters: [otlp/jaeger]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, resource/metricas, batch]
       exporters: [prometheus]

@@ -1,0 +1,66 @@
+{
+  "uid": "lms-servicios-salud",
+  "title": "LMS · Salud de los servicios",
+  "tags": ["lms"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Procesos que reportan",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(count by (service_name) (dotnet_process_cpu_count))",
+          "legendFormat": "servicios"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Uso de CPU por servicio",
+      "description": "La instrumentacion de runtime de .NET no expone tiempo en marcha; un servicio que deja de dibujar linea es un servicio que ha dejado de reportar.",
+      "gridPos": { "h": 9, "w": 18, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (rate(dotnet_process_cpu_time_seconds_total[5m]))",
+          "legendFormat": "{{service_name}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Memoria en uso por servicio",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "dotnet_process_memory_working_set_bytes",
+          "legendFormat": "{{service_name}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Recolecciones de basura por segundo",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (rate(dotnet_gc_collections_total[5m]))",
+          "legendFormat": "{{service_name}}"
+        }
+      ]
+    }
+  ]
+}
