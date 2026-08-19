@@ -6,10 +6,12 @@ using CourseAuthoring.Application.Catalog.BrowseCatalog;
 using CourseAuthoring.Application.Catalog.GetPublishedCourse;
 using CourseAuthoring.Application.Catalog.GetPublishedLessonIds;
 using CourseAuthoring.Domain.Courses;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CourseAuthoring.Api.Controllers;
 
+[AllowAnonymous]
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/catalog/courses")]

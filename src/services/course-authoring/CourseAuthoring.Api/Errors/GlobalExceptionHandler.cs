@@ -37,9 +37,9 @@ internal sealed class GlobalExceptionHandler(
                 "URL de video invalida",
                 exception.Message),
 
-            MissingInstructorHeaderException => (
-                StatusCodes.Status400BadRequest,
-                "Instructor no identificado",
+            InvalidActorClaimException => (
+                StatusCodes.Status401Unauthorized,
+                "Actor no identificado",
                 exception.Message),
 
             CourseOwnershipException => (

@@ -1,0 +1,487 @@
+{
+  "realm": "lms",
+  "enabled": true,
+  "sslRequired": "none",
+  "accessTokenLifespan": 900,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "Student",
+        "description": "Estudiante: se matricula, avanza en el curso y consulta sus certificados"
+      },
+      {
+        "name": "Instructor",
+        "description": "Instructor: crea, edita y publica sus propios cursos"
+      },
+      {
+        "name": "Administrator",
+        "description": "Administrador: resuelve compras detenidas en revision manual"
+      }
+    ],
+    "client": {
+      "enrollment-api": [
+        {
+          "name": "access-reader",
+          "description": "Consultar el acceso de un estudiante a un curso desde una cuenta de servicio"
+        }
+      ]
+    }
+  },
+  "clientScopes": [
+    {
+      "name": "lms-api",
+      "description": "Audiencias de las seis API de negocio y roles aplanados en el claim roles",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "subject",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-course-authoring-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "course-authoring-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-enrollment-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "enrollment-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-learning-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "learning-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-certification-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "certification-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-bff-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "bff-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-paid-enrollment-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "paid-enrollment-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles-flattened",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "client-roles-flattened",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "enrollment-access",
+      "description": "Audiencia de Enrollment y roles de cliente para la cuenta de servicio de paid-enrollment",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-enrollment-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "enrollment-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "client-roles-flattened",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "usermodel.clientRoleMapping.clientId": "enrollment-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "keycloak-admin",
+      "description": "Audiencia de realm-management y roles de cliente para la cuenta de servicio de certification",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-realm-management",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "realm-management",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "client-roles-flattened",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "usermodel.clientRoleMapping.clientId": "realm-management",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "lms-spa",
+      "name": "Cliente publico de pruebas con PKCE",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "https://oauth.pstmn.io/v1/callback",
+        "http://localhost:*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "lms-api"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "lms-gateway",
+      "name": "Cliente confidencial de borde",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "lms-gateway-dev-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "https://oauth.pstmn.io/v1/callback",
+        "http://localhost:*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "defaultClientScopes": [
+        "lms-api"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "course-authoring-api",
+      "name": "Audiencia de Course Authoring",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "defaultClientScopes": [],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "enrollment-api",
+      "name": "Audiencia de Enrollment",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "defaultClientScopes": [],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "learning-api",
+      "name": "Audiencia de Learning",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "defaultClientScopes": [],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "certification-api",
+      "name": "Audiencia de Certification",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "defaultClientScopes": [],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "bff-api",
+      "name": "Audiencia del BFF de composicion",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "defaultClientScopes": [],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "paid-enrollment-api",
+      "name": "Audiencia de Paid Enrollment",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "defaultClientScopes": [],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "paid-enrollment-svc",
+      "name": "Cuenta de servicio de Paid Enrollment",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "paid-enrollment-svc-dev-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": [
+        "enrollment-access"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "certification-svc",
+      "name": "Cuenta de servicio de Certification",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "certification-svc-dev-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": [
+        "keycloak-admin"
+      ],
+      "optionalClientScopes": []
+    }
+  ],
+  "users": [
+    {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "username": "instructor",
+      "enabled": true,
+      "email": "instructor@lms.local",
+      "emailVerified": true,
+      "firstName": "Ines",
+      "lastName": "Torres",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "instructor",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Instructor"
+      ]
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "username": "estudiante1",
+      "enabled": true,
+      "email": "estudiante1@lms.local",
+      "emailVerified": true,
+      "firstName": "Alexander",
+      "lastName": "Gonzales",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "estudiante1",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Student"
+      ]
+    },
+    {
+      "id": "99999999-9999-4999-8999-999999999999",
+      "username": "estudiante2",
+      "enabled": true,
+      "email": "estudiante2@lms.local",
+      "emailVerified": true,
+      "firstName": "Lucia",
+      "lastName": "Ramirez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "estudiante2",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Student"
+      ]
+    },
+    {
+      "id": "33333333-3333-3333-3333-333333333333",
+      "username": "administrador",
+      "enabled": true,
+      "email": "administrador@lms.local",
+      "emailVerified": true,
+      "firstName": "Diego",
+      "lastName": "Salas",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "administrador",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "Administrator"
+      ]
+    },
+    {
+      "username": "service-account-paid-enrollment-svc",
+      "enabled": true,
+      "serviceAccountClientId": "paid-enrollment-svc",
+      "clientRoles": {
+        "enrollment-api": [
+          "access-reader"
+        ]
+      }
+    },
+    {
+      "username": "service-account-certification-svc",
+      "enabled": true,
+      "serviceAccountClientId": "certification-svc",
+      "clientRoles": {
+        "realm-management": [
+          "view-users"
+        ]
+      }
+    }
+  ]
+}

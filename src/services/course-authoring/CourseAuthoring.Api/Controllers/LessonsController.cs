@@ -5,10 +5,12 @@ using CourseAuthoring.Application.Courses.RemoveLesson;
 using CourseAuthoring.Application.Courses.ReorderLessons;
 using CourseAuthoring.Application.Courses.UpdateLesson;
 using CourseAuthoring.Domain.Courses;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CourseAuthoring.Api.Controllers;
 
+[Authorize(Policy = "Instructor")]
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/courses/{id:guid}/lessons")]

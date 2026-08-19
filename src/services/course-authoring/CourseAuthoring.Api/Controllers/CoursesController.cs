@@ -7,10 +7,12 @@ using CourseAuthoring.Application.Courses.PublishCourse;
 using CourseAuthoring.Application.Courses.RenameCourse;
 using CourseAuthoring.Application.Courses.RepublishCourse;
 using CourseAuthoring.Domain.Courses;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CourseAuthoring.Api.Controllers;
 
+[Authorize(Policy = "Instructor")]
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/courses")]
