@@ -3,9 +3,11 @@ using Enrollments.Api.Contracts;
 using Enrollments.Application.Enrollments.GetStudentEnrollment;
 using Enrollments.Application.Enrollments.ListStudentEnrollments;
 using Enrollments.Domain.Enrollments;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 namespace Enrollments.Api.Controllers;
 
+[Authorize(Policy = "Student")]
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/me/enrollments")]
