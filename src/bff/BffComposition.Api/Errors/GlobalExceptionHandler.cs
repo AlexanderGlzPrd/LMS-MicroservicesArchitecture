@@ -1,5 +1,4 @@
 using System.Globalization;
-using BffComposition.Api.Actor;
 using BffComposition.Api.Clients.Learning;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Extensions.Options;
@@ -15,8 +14,6 @@ internal sealed class GlobalExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
-        //El llamante abandono la peticion: no es fallo de nadie y no tiene destinatario.
-        //No se escribe ProblemDetails, no se emite 503 ni 500
         if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
         {
             logger.LogInformation("Peticion cancelada por el llamante en {Method} {Path}",
@@ -27,11 +24,6 @@ internal sealed class GlobalExceptionHandler(
 
         var (statusCode, title, detail) = exception switch
         {
-            MissingStudentHeaderException => (
-                StatusCodes.Status400BadRequest,
-                "Estudiante no identificado",
-                exception.Message),
-
             InvalidProgressStatusException => (
                 StatusCodes.Status400BadRequest,
                 "Filtro de estado no admitido",

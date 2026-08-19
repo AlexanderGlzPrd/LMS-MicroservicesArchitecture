@@ -2,9 +2,11 @@ using Asp.Versioning;
 using BffComposition.Api.Composition;
 using BffComposition.Api.Contracts;
 using BffComposition.Api.Errors;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 namespace BffComposition.Api.Controllers;
 
+[Authorize(Policy = "Student")]
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/me/courses-in-progress")]

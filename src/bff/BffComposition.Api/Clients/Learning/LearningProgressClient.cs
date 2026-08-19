@@ -1,10 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using BffComposition.Api.Actor;
+using Microsoft.Net.Http.Headers;
 using Polly;
 namespace BffComposition.Api.Clients.Learning;
-public sealed class LearningProgressClient(HttpClient httpClient, ICurrentActor currentActor)
+public sealed class LearningProgressClient(
+    HttpClient httpClient,
+    IHttpContextAccessor httpContextAccessor)
 {
     public async Task<StudentProgressLookup> GetProgressAsync(
         string status,
@@ -16,7 +18,14 @@ public sealed class LearningProgressClient(HttpClient httpClient, ICurrentActor 
                 HttpMethod.Get,
                 $"api/v1/me/course-progress?status={status}");
 
-            request.Headers.Add(HttpCurrentActor.HeaderName, currentActor.StudentId.ToString());
+            // Se propaga el token del usuario, no una identidad de servicio
+            var authorization = httpContextAccessor.HttpContext?
+                .Request.Headers[HeaderNames.Authorization].ToString();
+
+            if (!string.IsNullOrWhiteSpace(authorization))
+            {
+                request.Headers.TryAddWithoutValidation(HeaderNames.Authorization, authorization);
+            }
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
 
