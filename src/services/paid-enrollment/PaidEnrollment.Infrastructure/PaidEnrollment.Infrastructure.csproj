@@ -15,5 +15,6 @@
     <ProjectReference Include="..\..\payment-provider-sim\PaymentProviderSim.Contracts\PaymentProviderSim.Contracts.csproj" />
     <ProjectReference Include="..\..\enrollment\Enrollments.Contracts\Enrollments.Contracts.csproj" />
     <ProjectReference Include="..\..\..\building-blocks\BuildingBlocks.Messaging\BuildingBlocks.Messaging.csproj" />
+    <ProjectReference Include="..\..\..\building-blocks\BuildingBlocks.Observability\BuildingBlocks.Observability.csproj" />
   </ItemGroup>
 </Project>

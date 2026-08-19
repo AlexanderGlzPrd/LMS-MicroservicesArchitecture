@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BuildingBlocks.Messaging;
+using BuildingBlocks.Observability;
 using PaidEnrollment.Application.Abstractions;
 using PaidEnrollment.Contracts.V1;
 using PaidEnrollment.Domain.Purchases;
@@ -98,5 +99,6 @@ internal sealed class OutboxWriter(PaidEnrollmentDbContext context) : IOutbox
             RoutingKey = routingKey,
             Payload = JsonSerializer.Serialize(contract, OutboxSerialization.Options),
             OccurredAt = occurredAt,
+            TraceContext = OutboxTraceContext.Capture(),
         });
 }

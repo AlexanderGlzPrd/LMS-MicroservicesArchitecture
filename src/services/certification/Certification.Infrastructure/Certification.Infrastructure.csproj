@@ -14,6 +14,7 @@
     <ProjectReference Include="..\Certification.Application\Certification.Application.csproj" />
     <ProjectReference Include="..\..\learning\Learning.Contracts\Learning.Contracts.csproj" />
     <ProjectReference Include="..\..\..\building-blocks\BuildingBlocks.Messaging\BuildingBlocks.Messaging.csproj" />
+    <ProjectReference Include="..\..\..\building-blocks\BuildingBlocks.Observability\BuildingBlocks.Observability.csproj" />
   </ItemGroup>
 
 </Project>

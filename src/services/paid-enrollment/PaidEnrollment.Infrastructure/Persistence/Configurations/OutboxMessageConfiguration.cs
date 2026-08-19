@@ -56,6 +56,9 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         builder.Property(message => message.LastAttemptAt)
             .HasColumnName("last_attempt_at");
 
+        builder.Property(message => message.TraceContext)
+            .HasColumnName("trace_context");
+
         builder.HasIndex(message => message.Id)
             .HasDatabaseName(PendingIndex)
             .HasFilter("published_at IS NULL");

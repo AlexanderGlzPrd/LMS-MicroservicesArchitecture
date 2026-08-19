@@ -1,5 +1,6 @@
 using System.Net;
 using BuildingBlocks.Messaging;
+using BuildingBlocks.Observability;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -153,6 +154,8 @@ public static class DependencyInjection
 
             bus.UsingRabbitMq((context, configurator) =>
             {
+                configurator.UseLmsConsumeCorrelation(context);
+
                 configurator.Host(
                     rabbitMq.Host,
                     (ushort)rabbitMq.Port,

@@ -125,6 +125,10 @@ namespace Enrollments.Infrastructure.Migrations
                         .HasColumnType("character varying(60)")
                         .HasColumnName("routing_key");
 
+                    b.Property<string>("TraceContext")
+                        .HasColumnType("text")
+                        .HasColumnName("trace_context");
+
                     b.HasKey("Id")
                         .HasName("pk_outbox_messages");
 

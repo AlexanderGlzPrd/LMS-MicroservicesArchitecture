@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BuildingBlocks.Messaging;
+using BuildingBlocks.Observability;
 using Enrollments.Application.Abstractions;
 using Enrollments.Contracts.V1;
 using Enrollments.Domain.Enrollments;
@@ -54,6 +55,7 @@ internal sealed class OutboxWriter(EnrollmentsDbContext context) : IOutbox
             RoutingKey = OutboxContractMapper.EnrollmentGrantedRoutingKey,
             Payload = JsonSerializer.Serialize(contract, OutboxSerialization.Options),
             OccurredAt = entry.ProcessedAt,
+            TraceContext = OutboxTraceContext.Capture(),
         });
     }
 
@@ -78,6 +80,7 @@ internal sealed class OutboxWriter(EnrollmentsDbContext context) : IOutbox
             RoutingKey = OutboxContractMapper.EnrollmentRejectedRoutingKey,
             Payload = JsonSerializer.Serialize(contract, OutboxSerialization.Options),
             OccurredAt = entry.ProcessedAt,
+            TraceContext = OutboxTraceContext.Capture(),
         });
     }
 
@@ -97,6 +100,7 @@ internal sealed class OutboxWriter(EnrollmentsDbContext context) : IOutbox
             MessageType = OutboxContractMapper.StudentEnrolledType,
             Payload = JsonSerializer.Serialize(contract, OutboxSerialization.Options),
             OccurredAt = enrollment.EnrolledAt,
+            TraceContext = OutboxTraceContext.Capture(),
         };
     }
 }

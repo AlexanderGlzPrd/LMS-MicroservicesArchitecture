@@ -1,5 +1,6 @@
 using System.Net;
 using BuildingBlocks.Messaging;
+using BuildingBlocks.Observability;
 using Enrollments.Application.Abstractions;
 using Enrollments.Contracts.V1;
 using Enrollments.Infrastructure.Acl;
@@ -59,6 +60,8 @@ public static class DependencyInjection
 
             bus.UsingRabbitMq((context, configurator) =>
             {
+                configurator.UseLmsConsumeCorrelation(context);
+
                 configurator.Host(
                     rabbitMq.Host,
                     (ushort)rabbitMq.Port,

@@ -20,4 +20,6 @@ internal sealed class OutboxMessage
     public string? LastError { get; set; }
 
     public DateTimeOffset? LastAttemptAt { get; set; }
+
+    public string? TraceContext { get; init; }
 }

@@ -55,6 +55,8 @@ builder.Services.AddMassTransit(bus =>
 
     bus.UsingRabbitMq((context, configurator) =>
     {
+        configurator.UseLmsConsumeCorrelation(context);
+
         configurator.Host(
             rabbitMq.Host,
             (ushort)rabbitMq.Port,
@@ -115,6 +117,8 @@ builder.Services.AddHealthChecks()
     .AddDbContextCheck<PaymentsDbContext>();
 
 var app = builder.Build();
+
+app.UseLmsCorrelation();
 
 app.MapHealthChecks("/health", new HealthCheckOptions
 {

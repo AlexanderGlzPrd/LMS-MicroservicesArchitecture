@@ -136,6 +136,8 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference().AllowAnonymous();
 }
 
+app.UseLmsCorrelation();
+
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -117,6 +117,8 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference().AllowAnonymous();
 }
 
+app.UseLmsCorrelation();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -125,5 +127,4 @@ app.MapHealthChecks("/health").AllowAnonymous();
 
 app.Run();
 
-// Punto de entrada visible para WebApplicationFactory en las pruebas de integracion.
 public partial class Program;

@@ -12,6 +12,8 @@ internal sealed class PurchaseConfiguration : IEntityTypeConfiguration<Purchase>
     internal const string ActiveFilter =
         "status NOT IN ('Confirmed', 'Rejected', 'Compensated')";
 
+    internal const string TraceContextProperty = "TraceContext";
+
     public void Configure(EntityTypeBuilder<Purchase> builder)
     {
         builder.ToTable("purchases");
@@ -96,6 +98,9 @@ internal sealed class PurchaseConfiguration : IEntityTypeConfiguration<Purchase>
         builder.Property(purchase => purchase.UpdatedAt)
             .HasColumnName("updated_at")
             .IsRequired();
+
+        builder.Property<string?>(TraceContextProperty)
+            .HasColumnName("trace_context");
 
         builder.HasIndex(purchase => new { purchase.StudentId, purchase.CourseId })
             .HasDatabaseName(ActiveStudentCourseIndex)

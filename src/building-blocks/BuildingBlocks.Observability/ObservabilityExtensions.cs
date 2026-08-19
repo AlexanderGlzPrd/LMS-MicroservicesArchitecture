@@ -16,6 +16,12 @@ public static class ObservabilityExtensions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(serviceName);
 
+        builder.Services.AddSingleton(new LmsServiceName(serviceName));
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddTransient<CorrelationPropagationHandler>();
+        builder.Services.ConfigureHttpClientDefaults(http =>
+            http.AddHttpMessageHandler<CorrelationPropagationHandler>());
+
         builder.Services
             .AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService(serviceName))

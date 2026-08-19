@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BuildingBlocks.Messaging;
+using BuildingBlocks.Observability;
 using PaymentProviderSim.Contracts.V1;
 using PaymentProviderSim.Worker.Persistence;
 namespace PaymentProviderSim.Worker.Messaging;
@@ -75,5 +76,6 @@ internal sealed class OutboxWriter(PaymentsDbContext context)
             RoutingKey = routingKey,
             Payload = JsonSerializer.Serialize(contract, OutboxSerialization.Options),
             OccurredAt = occurredAt,
+            TraceContext = OutboxTraceContext.Capture(),
         });
 }

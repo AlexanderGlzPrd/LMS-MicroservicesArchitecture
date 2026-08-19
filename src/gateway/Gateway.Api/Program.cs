@@ -1,7 +1,9 @@
 using BuildingBlocks.Observability;
+using Gateway.Api.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Yarp.ReverseProxy.Transforms;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
@@ -128,6 +130,9 @@ app.UseStatusCodePages(async statusCodeContext =>
         },
     });
 });
+
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseLmsCorrelation();
 
 app.UseAuthentication();
 

@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Text.Json;
 using BuildingBlocks.Messaging;
+using BuildingBlocks.Observability;
 using Enrollments.Contracts.V1;
 using Enrollments.Infrastructure.Persistence;
 using MassTransit;
@@ -15,6 +17,8 @@ internal sealed class OutboxDispatcher(
     TimeProvider timeProvider,
     ILogger<OutboxDispatcher> logger) : BackgroundService
 {
+    private static readonly ActivitySource ActivitySource = new("enrollment");
+
     private const int MaxLastErrorLength = 2000;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -66,7 +70,10 @@ internal sealed class OutboxDispatcher(
         {
             try
             {
-                await PublishOneAsync(publishEndpoint, message, stoppingToken);
+                using (StartPublishActivity(message))
+                {
+                    await PublishOneAsync(publishEndpoint, message, stoppingToken);
+                }
 
                 message.PublishedAt = timeProvider.GetUtcNow();
             }
@@ -191,6 +198,21 @@ internal sealed class OutboxDispatcher(
                 context.SetRoutingKey(row.RoutingKey);
             }
         }, token);
+
+    private Activity? StartPublishActivity(OutboxMessage message)
+    {
+        if (OutboxTraceContext.TryRestore(message.TraceContext, out var parent))
+        {
+            return ActivitySource.StartActivity("outbox publish", ActivityKind.Producer, parent);
+        }
+
+        logger.LogWarning(
+            "El mensaje {MessageId} del Outbox no lleva un contexto de traza utilizable; "
+            + "se publica bajo una actividad raiz nueva.",
+            message.Id);
+
+        return ActivitySource.StartActivity("outbox publish", ActivityKind.Producer);
+    }
 
     private void RecordFailedAttempt(OutboxMessage message, Exception exception)
     {
