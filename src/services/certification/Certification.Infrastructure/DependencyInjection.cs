@@ -4,6 +4,7 @@ using Certification.Application.Abstractions;
 using Certification.Application.Abstractions.Exceptions;
 using Certification.Infrastructure.Acl;
 using Certification.Infrastructure.Directory;
+using Certification.Infrastructure.Identity;
 using Certification.Infrastructure.Issuance;
 using Certification.Infrastructure.Messaging;
 using Certification.Infrastructure.Persistence;
@@ -33,12 +34,11 @@ public static class DependencyInjection
         services.Configure<CourseAuthoringOptions>(
             configuration.GetSection(CourseAuthoringOptions.SectionName));
 
-        services.Configure<StudentDirectoryOptions>(
-            configuration.GetSection(StudentDirectoryOptions.SectionName));
-
-        services.AddScoped<IStudentDirectory, ConfiguredStudentDirectory>();
+        services.Configure<KeycloakAdminOptions>(
+            configuration.GetSection(KeycloakAdminOptions.SectionName));
 
         AddCourseAuthoringClient(services);
+        AddStudentDirectoryClient(services);
 
         AddMessaging(services, configuration);
         AddIssuance(services, configuration);
@@ -130,6 +130,67 @@ public static class DependencyInjection
             {
                 var options = context.ServiceProvider
                     .GetRequiredService<IOptions<CourseAuthoringOptions>>().Value;
+
+                pipeline.AddTimeout(TimeSpan.FromSeconds(options.TotalTimeoutSeconds));
+
+                pipeline.AddRetry(new HttpRetryStrategyOptions
+                {
+                    MaxRetryAttempts = options.RetryAttempts,
+                    BackoffType = DelayBackoffType.Exponential,
+                    UseJitter = false,
+                    Delay = TimeSpan.FromMilliseconds(options.RetryBaseDelayMilliseconds),
+                    ShouldHandle = args => ShouldHandleTransient(args.Outcome),
+                });
+
+                pipeline.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+                {
+                    FailureRatio = options.CircuitBreakerFailureRatio,
+                    SamplingDuration = TimeSpan.FromSeconds(options.CircuitBreakerSamplingSeconds),
+                    MinimumThroughput = options.CircuitBreakerMinimumThroughput,
+                    BreakDuration = TimeSpan.FromSeconds(options.CircuitBreakerBreakSeconds),
+                    ShouldHandle = args => ShouldHandleTransient(args.Outcome),
+                });
+            });
+    }
+
+    private static void AddStudentDirectoryClient(IServiceCollection services)
+    {
+        services.AddHttpClient(ServiceTokenProvider.HttpClientName, client =>
+                client.Timeout = Timeout.InfiniteTimeSpan)
+            .AddResilienceHandler("keycloak-token", (pipeline, context) =>
+            {
+                var options = context.ServiceProvider
+                    .GetRequiredService<IOptions<KeycloakAdminOptions>>().Value;
+
+                pipeline.AddTimeout(TimeSpan.FromSeconds(options.TotalTimeoutSeconds));
+
+                // Sin circuit breaker propio: el fallo ya se traduce en el ACL que lo usa
+                pipeline.AddRetry(new HttpRetryStrategyOptions
+                {
+                    MaxRetryAttempts = options.RetryAttempts,
+                    BackoffType = DelayBackoffType.Exponential,
+                    UseJitter = false,
+                    Delay = TimeSpan.FromMilliseconds(options.RetryBaseDelayMilliseconds),
+                    ShouldHandle = args => ShouldHandleTransient(args.Outcome),
+                });
+            });
+
+        services.AddSingleton<ServiceTokenProvider>();
+
+        services.AddHttpClient<IStudentDirectory, KeycloakStudentDirectory>(
+                (provider, client) =>
+                {
+                    var options = provider
+                        .GetRequiredService<IOptions<KeycloakAdminOptions>>().Value;
+
+                    client.BaseAddress = new Uri(EnsureTrailingSlash(options.AdminBaseUrl));
+
+                    client.Timeout = Timeout.InfiniteTimeSpan;
+                })
+            .AddResilienceHandler("keycloak-admin", (pipeline, context) =>
+            {
+                var options = context.ServiceProvider
+                    .GetRequiredService<IOptions<KeycloakAdminOptions>>().Value;
 
                 pipeline.AddTimeout(TimeSpan.FromSeconds(options.TotalTimeoutSeconds));
 

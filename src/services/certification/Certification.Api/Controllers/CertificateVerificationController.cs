@@ -2,8 +2,10 @@ using Asp.Versioning;
 using Certification.Api.Contracts;
 using Certification.Application.Certificates.VerifyCertificate;
 using Certification.Domain.Certificates;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 namespace Certification.Api.Controllers;
+[AllowAnonymous]
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/certificates")]

@@ -3,8 +3,10 @@ using Certification.Api.Contracts;
 using Certification.Application.Certificates.GetCertificate;
 using Certification.Application.Certificates.ListStudentCertificates;
 using Certification.Domain.Certificates;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 namespace Certification.Api.Controllers;
+[Authorize(Policy = "Student")]
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/me/certificates")]

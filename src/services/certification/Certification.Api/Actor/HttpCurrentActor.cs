@@ -1,19 +1,19 @@
+using System.Security.Claims;
+
 using Certification.Application.Abstractions;
 namespace Certification.Api.Actor;
 
 internal sealed class HttpCurrentActor(IHttpContextAccessor httpContextAccessor) : ICurrentActor
 {
-    public const string HeaderName = "X-Student-Id";
-
     public Guid StudentId
     {
         get
         {
-            var header = httpContextAccessor.HttpContext?.Request.Headers[HeaderName].ToString();
+            var subject = httpContextAccessor.HttpContext?.User.FindFirstValue("sub");
 
-            return Guid.TryParse(header, out var studentId) && studentId != Guid.Empty
+            return Guid.TryParse(subject, out var studentId) && studentId != Guid.Empty
                 ? studentId
-                : throw new MissingStudentHeaderException();
+                : throw new InvalidActorClaimException();
         }
     }
 }

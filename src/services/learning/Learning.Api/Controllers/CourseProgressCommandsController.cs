@@ -3,11 +3,9 @@ using Learning.Api.Contracts;
 using Learning.Application.Progress.ConfirmCompletion;
 using Learning.Application.Progress.MarkLessonCompleted;
 using Learning.Domain.Progress;
-
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
-namespace Learning.Api.Controllers;
-
+[Authorize(Policy = "Student")]
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/me/course-progress")]
