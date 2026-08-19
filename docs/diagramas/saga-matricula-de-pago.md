@@ -88,6 +88,50 @@ sequenceDiagram
     Note over PE: → Confirmada
 ```
 
+## Reconciliación de un resultado desconocido
+
+El orquestador emitió una operación y no observó su respuesta. Eso **no es un fracaso**: se averigua.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant PE as paid-enrollment
+    participant MQ as RabbitMQ
+    participant PS as payment-provider-sim
+    participant EN as enrollment
+
+    PE->>MQ: CapturarPago
+    MQ->>PS: CapturarPago
+    Note over PS: aplica y persiste la captura,<br/>pero su respuesta se pierde
+    Note over PE: vence el paso → VerificandoResultadoCaptura
+
+    PE->>MQ: ConsultarEstadoDePago
+    MQ->>PS: ConsultarEstadoDePago
+    Note over PS: consulta pura:<br/>no autoriza, no captura, no mueve dinero
+    PS->>MQ: EstadoDePagoReportado (Captured + marcas reales)
+    MQ->>PE: EstadoDePagoReportado
+    Note over PE: 1. restaura evidencia (CapturedAt real)<br/>2. elige la transición con la evidencia ya actualizada<br/>→ PagoCapturado
+
+    PE->>MQ: ConcederMatriculaPorPagoCapturado
+    MQ->>EN: ConcederMatriculaPorPagoCapturado
+    Note over PE: si tampoco llega respuesta,<br/>la concesión se reconcilia REENVIANDO el comando
+    Note over EN: el ledger por PurchaseId devuelve el resultado<br/>almacenado y NO re-emite EstudianteMatriculado
+
+    Note over PE: agotados los intentos sin respuesta concluyente<br/>→ ManualReview, sin compensar nada
+```
+
+**Por qué la asimetría.** El pago se reconcilia **preguntando**, porque un comando de captura
+reenviado sería indistinguible de una orden de cobrar. La concesión se reconcilia **reenviando el
+comando**, porque el ledger devuelve además el origen del acceso, y una consulta genérica de
+matrícula diría «está matriculado» sin decir por qué compra.
+
+**El orden importa y no es negociable.** La compensación se decide leyendo `CapturedAt`, así que la
+evidencia se restaura **antes** de elegir la transición. Sin ese orden, una captura silenciosa
+reconciliada avanzaría con `CapturedAt` vacío y un rechazo posterior dispararía una **anulación sobre
+un pago ya cobrado** en vez del reembolso que corresponde. Por eso `EstadoDePagoReportado` transporta
+las cuatro marcas temporales reales del proveedor, y por eso el instante del mensaje **nunca** sustituye
+al instante del efecto.
+
 ## Reglas de la Saga
 
 | Regla | Aplicación |

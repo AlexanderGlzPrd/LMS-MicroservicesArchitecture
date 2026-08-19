@@ -41,7 +41,7 @@ Todas con **timeout acotado, reintentos con backoff y Circuit Breaker**.
 
 **Solo estos dos** gobiernan procesos de aplicación en el MVP.
 
-## 4. Comunicación asíncrona — mensajes de Saga (extensión opcional)
+## 4. Comunicación asíncrona — mensajes de Saga
 
 | Mensaje | Productor → Consumidor |
 |---|---|
@@ -49,9 +49,20 @@ Todas con **timeout acotado, reintentos con backoff y Circuit Breaker**.
 | `CapturarPago` / `PagoCapturado`·`CapturaFallida` | paid-enrollment ↔ payment-provider-sim |
 | `AnularAutorizacion` / `AutorizacionAnulada` | paid-enrollment ↔ payment-provider-sim |
 | `ReembolsarPago` / `PagoReembolsado`·`ReembolsoFallido` | paid-enrollment ↔ payment-provider-sim |
+| **`ConsultarEstadoDePago`** / `EstadoDePagoReportado` | paid-enrollment ↔ payment-provider-sim |
 | **`ConcederMatriculaPorPagoCapturado`** / `MatriculaConcedida`·`MatriculaRechazada` | paid-enrollment ↔ **enrollment** |
 
 **Todos tienen consumidor real.**
+
+`ConsultarEstadoDePago` es el canal de reconciliación: cuando el orquestador emite una operación y no
+observa su respuesta, **pregunta el estado durable en vez de repetir la operación**. Un comando de
+captura reenviado sería, visto desde el proveedor, indistinguible de una orden de cobrar; una consulta
+no cobra nunca. Su respuesta transporta las cuatro marcas temporales reales del pago —autorización,
+captura, anulación y reembolso—, que son las que deciden qué compensación corresponde.
+
+La concesión es la excepción y se reconcilia **reenviando el comando**, porque el ledger por
+`PurchaseId` de Enrollment devuelve el resultado almacenado junto con el origen del acceso, que una
+consulta genérica de matrícula no distingue.
 
 ## 5. Eventos de dominio que NO se publican
 

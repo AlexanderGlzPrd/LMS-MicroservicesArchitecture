@@ -79,7 +79,7 @@ nombres para la misma cosa" (negocio, backend, base de datos, frontend).
 | Término | Código | Significado |
 |---|---|---|
 | **Matrícula** | `Enrollment` | Vínculo entre un Estudiante y un Curso; le concede acceso al contenido. |
-| **Tipo de matrícula** | `EnrollmentType` | `Gratuita` (`Free`) o `De pago` (`Paid`). En el MVP **siempre** es `Free`. |
+| **Tipo de matrícula** | `EnrollmentType` | `Gratuita` (`Free`) o `De pago` (`Paid`). El flujo de matriculación produce `Free`; la concesión que la Saga de compra de acceso pide a Enrollment produce `Paid` ([T28](./adr/ADR-T28-tipo-de-matricula-pagada.md)). |
 | **Progreso** | `Progress` | Registro de qué Lecciones ha completado el Estudiante en un Curso. |
 | **Completar lección** | `CompleteLesson` | Acción del Estudiante que marca una Lección como terminada. |
 | **Curso completado** | `Completed` | Estado que alcanza la Matrícula cuando el Estudiante completa el **100 %** de las Lecciones del Curso. |

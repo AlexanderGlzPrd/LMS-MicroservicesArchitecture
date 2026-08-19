@@ -49,6 +49,7 @@ Existen **dos series** con propósitos distintos. **No se renumeran**: coexisten
 | [T25](./ADR-T25-retirada-del-arranque-provisional-de-progreso.md) | Retirada de la creación provisional del Progreso y excepción única a T24 §6 | Aceptado | 2026-08-15 |
 | [T26](./ADR-T26-directorio-provisional-de-estudiantes.md) | Fuente provisional del nombre del estudiante en Certification | Aceptado | 2026-08-16 |
 | [T27](./ADR-T27-sin-instantanea-del-conjunto-de-lecciones.md) | `ProgresoDelCurso` no persiste snapshot de `LessonIds` | Aceptado | 2026-08-16 |
+| [T28](./ADR-T28-tipo-de-matricula-pagada.md) | Alcance de la cláusula «no se modifica el Aggregate Root» de T23 | Aceptado | 2026-08-18 |
 
 ## Estados posibles
 `Propuesto` · `Aceptado` · `Aceptado con riesgos residuales` · `Reemplazado por ADR-XXXX` · `Obsoleto`
