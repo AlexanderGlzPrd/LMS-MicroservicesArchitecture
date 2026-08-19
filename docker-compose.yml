@@ -51,6 +51,7 @@ services:
       - rabbitmq-data:/var/lib/rabbitmq
       - ./deploy/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./deploy/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./deploy/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
     healthcheck:
       test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms"]
       interval: 10s
@@ -297,6 +298,57 @@ services:
       - "127.0.0.1:5201:8080"
     healthcheck: *dotnet-healthcheck
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:${OTEL_COLLECTOR_TAG}
+    container_name: lms-otel-collector
+    profiles: ["observability"]
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./deploy/otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+
+  jaeger:
+    image: jaegertracing/all-in-one:${JAEGER_TAG}
+    container_name: lms-jaeger
+    profiles: ["observability"]
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:16686:16686"
+
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_TAG}
+    container_name: lms-prometheus
+    profiles: ["observability"]
+    restart: unless-stopped
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_TAG}
+    container_name: lms-grafana
+    profiles: ["observability"]
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_started
+      jaeger:
+        condition: service_started
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./deploy/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./deploy/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+
 volumes:
   postgres-data:
   rabbitmq-data:
+  prometheus-data:
